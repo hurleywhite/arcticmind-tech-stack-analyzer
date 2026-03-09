@@ -50,9 +50,13 @@ export async function extractTechStack(
   jobs: JobListing[],
   companyName: string
 ): Promise<ClaudeExtractionResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // CLAUDE_API_KEY preferred (avoids collision with Claude Code's own ANTHROPIC_API_KEY locally)
+  // Falls back to ANTHROPIC_API_KEY for Vercel / production deployments
+  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY environment variable is not set");
+    throw new Error(
+      "No API key found. Set CLAUDE_API_KEY (or ANTHROPIC_API_KEY) in .env.local"
+    );
   }
 
   const client = new Anthropic({ apiKey });

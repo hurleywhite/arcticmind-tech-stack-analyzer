@@ -36,8 +36,10 @@ cp .env.example .env.local
 
 ```
 SERPAPI_KEY=your_serpapi_key_here
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+CLAUDE_API_KEY=your_anthropic_api_key_here
 ```
+
+> **Note:** Use `CLAUDE_API_KEY` locally (avoids collision with Claude Code). On Vercel, `ANTHROPIC_API_KEY` also works — the app checks both.
 
 Run the dev server:
 
@@ -133,4 +135,4 @@ vercel
 
 Set environment variables in Vercel dashboard:
 - `SERPAPI_KEY`
-- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY` — either works)

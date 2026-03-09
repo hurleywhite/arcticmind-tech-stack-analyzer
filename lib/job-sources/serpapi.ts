@@ -14,6 +14,10 @@ interface SerpApiJobResult {
 
 interface SerpApiResponse {
   jobs_results?: SerpApiJobResult[];
+  serpapi_pagination?: {
+    next_page_token?: string;
+    next?: string;
+  };
   error?: string;
 }
 
@@ -26,35 +30,39 @@ export async function fetchJobsFromSerpApi(
   }
 
   const allJobs: JobListing[] = [];
+  let nextPageToken: string | undefined = undefined;
+  const maxPages = 3; // Fetch up to 3 pages for 20-30 listings
 
-  // SerpAPI supports pagination via the "start" parameter (increments of 10)
-  // We'll fetch up to 3 pages to aim for 20-30 listings
-  for (let start = 0; start < 30; start += 10) {
-    const params = new URLSearchParams({
+  for (let page = 0; page < maxPages; page++) {
+    const params: Record<string, string> = {
       engine: "google_jobs",
       q: `${companyName} jobs`,
       api_key: apiKey,
-      start: start.toString(),
-    });
+    };
+
+    if (nextPageToken) {
+      params.next_page_token = nextPageToken;
+    }
 
     const response = await fetch(
-      `https://serpapi.com/search.json?${params.toString()}`
+      `https://serpapi.com/search.json?${new URLSearchParams(params).toString()}`
     );
 
     if (!response.ok) {
-      if (start === 0) {
+      const errorBody = await response.text();
+      console.error("SerpAPI error response:", errorBody);
+      if (page === 0) {
         throw new Error(
           `SerpAPI request failed: ${response.status} ${response.statusText}`
         );
       }
-      // If pagination fails on subsequent pages, just return what we have
       break;
     }
 
     const data: SerpApiResponse = await response.json();
 
     if (data.error) {
-      if (start === 0) {
+      if (page === 0) {
         throw new Error(`SerpAPI error: ${data.error}`);
       }
       break;
@@ -72,6 +80,13 @@ export async function fetchJobsFromSerpApi(
     }));
 
     allJobs.push(...jobs);
+
+    // Check for next page token
+    if (data.serpapi_pagination?.next_page_token) {
+      nextPageToken = data.serpapi_pagination.next_page_token;
+    } else {
+      break; // No more pages
+    }
   }
 
   return allJobs;
