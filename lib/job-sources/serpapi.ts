@@ -36,7 +36,7 @@ export async function fetchJobsFromSerpApi(
   for (let page = 0; page < maxPages; page++) {
     const params: Record<string, string> = {
       engine: "google_jobs",
-      q: `${companyName} jobs`,
+      q: `"${companyName}" jobs`,
       api_key: apiKey,
     };
 
