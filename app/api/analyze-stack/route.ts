@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     if (jobs.length === 0) {
       return NextResponse.json(
         {
-          error: `No job listings found for "${companyName}". The company may not have public job postings, or the name may not match their Google Jobs listings.`,
+          error: `No public job listings found for "${companyName}". This usually means the company isn't actively hiring on major job boards, or is too small for Google Jobs to index. Try a larger company or check that the domain is correct.`,
         },
         { status: 404 }
       );

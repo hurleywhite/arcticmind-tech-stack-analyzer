@@ -21,22 +21,18 @@ interface SerpApiResponse {
   error?: string;
 }
 
-export async function fetchJobsFromSerpApi(
-  companyName: string
+async function searchJobs(
+  query: string,
+  apiKey: string,
+  maxPages: number = 3
 ): Promise<JobListing[]> {
-  const apiKey = process.env.SERPAPI_KEY;
-  if (!apiKey) {
-    throw new Error("SERPAPI_KEY environment variable is not set");
-  }
-
   const allJobs: JobListing[] = [];
   let nextPageToken: string | undefined = undefined;
-  const maxPages = 3; // Fetch up to 3 pages for 20-30 listings
 
   for (let page = 0; page < maxPages; page++) {
     const params: Record<string, string> = {
       engine: "google_jobs",
-      q: `"${companyName}" jobs`,
+      q: query,
       api_key: apiKey,
     };
 
@@ -49,23 +45,18 @@ export async function fetchJobsFromSerpApi(
     );
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("SerpAPI error response:", errorBody);
       if (page === 0) {
-        throw new Error(
-          `SerpAPI request failed: ${response.status} ${response.statusText}`
-        );
+        // Non-200 on first page — could be a transient error
+        return [];
       }
       break;
     }
 
     const data: SerpApiResponse = await response.json();
 
+    // "No results" error from Google — not a failure, just no listings
     if (data.error) {
-      if (page === 0) {
-        throw new Error(`SerpAPI error: ${data.error}`);
-      }
-      break;
+      return allJobs;
     }
 
     if (!data.jobs_results || data.jobs_results.length === 0) {
@@ -85,9 +76,28 @@ export async function fetchJobsFromSerpApi(
     if (data.serpapi_pagination?.next_page_token) {
       nextPageToken = data.serpapi_pagination.next_page_token;
     } else {
-      break; // No more pages
+      break;
     }
   }
 
   return allJobs;
+}
+
+export async function fetchJobsFromSerpApi(
+  companyName: string
+): Promise<JobListing[]> {
+  const apiKey = process.env.SERPAPI_KEY;
+  if (!apiKey) {
+    throw new Error("SERPAPI_KEY environment variable is not set");
+  }
+
+  // Try quoted search first (more precise, avoids common-word collisions)
+  let jobs = await searchJobs(`"${companyName}" jobs`, apiKey);
+
+  // If no results, fall back to unquoted search
+  if (jobs.length === 0) {
+    jobs = await searchJobs(`${companyName} jobs`, apiKey);
+  }
+
+  return jobs;
 }
