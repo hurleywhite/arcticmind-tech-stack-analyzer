@@ -223,7 +223,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const feed = await generateFeed(profile, companyData, companyFeedCache, allAvoidTopics, collectiveContext, upvotedTopics);
+    const articleCount = profile.article_count || 8;
+    const feed = await generateFeed(profile, companyData, companyFeedCache, allAvoidTopics, collectiveContext, upvotedTopics, articleCount);
 
     // Cache shared company feed if we generated it fresh
     if (!companyFeedCache && companyData && profile.company_domain) {

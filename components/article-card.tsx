@@ -17,32 +17,32 @@ export default function ArticleCard({
   onRead?: (url: string) => void;
 }) {
   return (
-    <article className={`group rounded-xl border p-5 transition-all hover:border-foreground/15 hover:bg-foreground/[0.04] ${
+    <article className={`group rounded-xl border p-5 transition-all hover:border-foreground/20 hover:bg-foreground/[0.04] ${
       isRead
-        ? "border-foreground/5 bg-foreground/[0.01] opacity-60"
-        : "border-foreground/8 bg-foreground/[0.02]"
+        ? "border-foreground/8 bg-foreground/[0.01] opacity-70"
+        : "border-foreground/12 bg-foreground/[0.02]"
     }`}>
       <div className="mb-2 flex items-center gap-2">
         {item.category && (
-          <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-400">
+          <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-500">
             {item.category}
           </span>
         )}
         {item.date && (
-          <span className="text-xs text-foreground/30">{item.date}</span>
+          <span className="text-xs text-foreground/50">{item.date}</span>
         )}
         {isRead && (
-          <span className="text-[10px] text-foreground/25">&check; read</span>
+          <span className="text-[10px] text-foreground/40">&check; read</span>
         )}
       </div>
 
-      <h3 className={`mb-2 text-[15px] leading-snug ${isRead ? "font-medium text-foreground/60" : "font-semibold text-foreground/90"}`}>
+      <h3 className={`mb-2 text-[15px] leading-snug ${isRead ? "font-medium text-foreground/70" : "font-semibold text-foreground"}`}>
         {item.url ? (
           <a
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-blue-400 transition-colors"
+            className="hover:text-blue-500 transition-colors"
             onClick={() => onRead?.(item.url!)}
           >
             {item.title}
@@ -52,12 +52,12 @@ export default function ArticleCard({
         )}
       </h3>
 
-      <p className="text-sm leading-relaxed text-foreground/55">
+      <p className="text-sm leading-relaxed text-foreground/75">
         {item.summary}
       </p>
 
       {item.relevance_note && (
-        <p className="mt-2.5 rounded-lg bg-blue-500/8 px-3 py-1.5 text-xs text-blue-400 leading-relaxed">
+        <p className="mt-2.5 rounded-lg bg-blue-500/10 px-3 py-2 text-xs text-blue-500 leading-relaxed">
           {"\ud83d\udca1"} {item.relevance_note}
         </p>
       )}
@@ -68,7 +68,7 @@ export default function ArticleCard({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-foreground/30 hover:text-foreground/50 transition-colors"
+            className="text-xs text-foreground/50 hover:text-foreground/70 transition-colors"
           >
             {item.source} &nearr;
           </a>

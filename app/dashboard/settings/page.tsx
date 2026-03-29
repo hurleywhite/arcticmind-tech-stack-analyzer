@@ -61,6 +61,7 @@ export default function SettingsPage() {
   const [contentDepth, setContentDepth] = useState("");
   const [toolingFocus, setToolingFocus] = useState("");
   const [aiGoals, setAiGoals] = useState<string[]>([]);
+  const [articleCount, setArticleCount] = useState(8);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -88,6 +89,7 @@ export default function SettingsPage() {
         setContentDepth(data.content_depth || "");
         setToolingFocus(data.tooling_focus || "");
         setAiGoals(data.ai_goals || []);
+        setArticleCount(data.article_count || 8);
       }
       setLoading(false);
     }
@@ -130,6 +132,7 @@ export default function SettingsPage() {
         content_depth: contentDepth || null,
         tooling_focus: toolingFocus || null,
         ai_goals: aiGoals,
+        article_count: articleCount,
       })
       .eq("id", user.id);
 
@@ -261,6 +264,33 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* --- Daily Articles --- */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/40">Daily Articles</h3>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-foreground/70">
+            How many articles per feed refresh?
+          </label>
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min={5}
+              max={15}
+              value={articleCount}
+              onChange={(e) => setArticleCount(Number(e.target.value))}
+              className="flex-1 accent-blue-600"
+            />
+            <span className="min-w-[3rem] rounded-lg border border-foreground/15 px-3 py-1.5 text-center text-sm font-semibold">
+              {articleCount}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-foreground/40">
+            5 = quick scan &middot; 8 = balanced (default) &middot; 15 = deep dive
+          </p>
         </div>
       </section>
 

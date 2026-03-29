@@ -224,8 +224,11 @@ export async function generateFeed(
   cachedCompanyFeed?: { tool_updates: FeedItem[]; company_news: CompanySection } | null,
   downvotedTopics?: string[],
   collectiveContext?: string,
-  upvotedTopics?: string[]
+  upvotedTopics?: string[],
+  articleCount?: number
 ): Promise<FeedData> {
+  // Default to 8 articles, user can set 5-15
+  const targetArticles = Math.min(15, Math.max(5, articleCount || 8));
   const techStack = companyData?.tech_stack
     ? Object.values(companyData.tech_stack).flat().filter(Boolean)
     : [];
@@ -248,11 +251,11 @@ export async function generateFeed(
 
     // Only need user-level calls (2 in parallel, 25s timeout each)
     const [aiResult, indResult] = await Promise.all([
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -271,16 +274,16 @@ export async function generateFeed(
 
     const [toolResult, aiResult, indResult] = await Promise.all([
       companyData
-        ? withTimeout(fetchToolUpdates(techStack, industry, downvotedTopics, upvotedTopics), 25000, "tool-updates").catch((e) => {
+        ? withTimeout(fetchToolUpdates(techStack, industry, downvotedTopics, upvotedTopics, Math.max(3, Math.ceil(targetArticles * 0.3))), 25000, "tool-updates").catch((e) => {
             console.error("Tool updates failed:", e);
             return [] as FeedItem[];
           })
         : Promise.resolve([] as FeedItem[]),
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -318,7 +321,8 @@ async function fetchToolUpdates(
   techStack: string[],
   industry: string,
   downvotedTopics?: string[],
-  upvotedTopics?: string[]
+  upvotedTopics?: string[],
+  count: number = 3
 ): Promise<FeedItem[]> {
   if (techStack.length === 0) return [];
 
@@ -346,7 +350,7 @@ async function fetchToolUpdates(
 
 Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
 
-Return 2-3 articles as JSON array ONLY: [{"title":"...","summary":"one sentence on what changed + one on why it matters for ${industry}","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
+Return ${count} articles as JSON array ONLY: [{"title":"...","summary":"one sentence on what changed + one on why it matters for ${industry}","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
         },
       ],
     });
@@ -359,7 +363,7 @@ Return 2-3 articles as JSON array ONLY: [{"title":"...","summary":"one sentence 
   }
 }
 
-async function fetchAiTrends(userContext: string, downvotedTopics?: string[], collectiveContext?: string, upvotedTopics?: string[]): Promise<FeedItem[]> {
+async function fetchAiTrends(userContext: string, downvotedTopics?: string[], collectiveContext?: string, upvotedTopics?: string[], count: number = 5): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
 
@@ -418,10 +422,10 @@ ${depthFraming}
 
 CRITICAL: Start by searching for BREAKING AI NEWS from the last 48 hours. Include any major announcements, model releases, leaked information, funding rounds, acquisitions, or policy changes that happened today or yesterday.
 
-Then search for 4-5 more recent AI articles from the last 7 days. MIX these types:
-- 2-3 articles matching their specific interests and goals (NOT just tool announcements)
-- 1-2 articles about AI trends affecting their industry (${industry})
-- 1 article about AI strategy, adoption, or governance relevant to their role
+Search for ${count} total recent AI articles from the last 7 days. MIX these types:
+- ${Math.ceil(count * 0.5)} articles matching their specific interests and goals (NOT just tool announcements)
+- ${Math.ceil(count * 0.3)} articles about AI trends affecting their industry (${industry})
+- ${Math.max(1, Math.floor(count * 0.2))} article(s) about AI strategy, adoption, or governance relevant to their role
 
 IMPORTANT: Do NOT focus exclusively on developer tools or model releases. This person's goals include: ${goals}. Match the content to those goals.
 
@@ -447,7 +451,8 @@ async function fetchIndustryAiNews(
   aiTools: string[],
   userContext: string,
   downvotedTopics?: string[],
-  upvotedTopics?: string[]
+  upvotedTopics?: string[],
+  count: number = 3
 ): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
@@ -468,7 +473,7 @@ async function fetchIndustryAiNews(
       messages: [
         {
           role: "user",
-          content: `Today is ${today}. Search for 2-3 recent articles about AI adoption, strategy, or transformation in the ${industry} industry. PRIORITIZE articles from the last 48 hours. This person is a ${role} whose goals include: ${goals || "staying informed"}.${avoidBlock}${boostBlock}
+          content: `Today is ${today}. Search for ${count} recent articles about AI adoption, strategy, or transformation in the ${industry} industry. PRIORITIZE articles from the last 48 hours. This person is a ${role} whose goals include: ${goals || "staying informed"}.${avoidBlock}${boostBlock}
 
 Focus on business impact, case studies, and practical adoption stories — NOT just product announcements.
 
