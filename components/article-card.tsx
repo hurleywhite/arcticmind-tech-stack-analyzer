@@ -12,7 +12,7 @@ export default function ArticleCard({
 }: {
   item: FeedItem;
   feedback: string | null;
-  onFeedback: (url: string, title: string, type: "up" | "down") => void;
+  onFeedback: (url: string, title: string, type: "up" | "down", source?: string, category?: string) => void;
   isRead?: boolean;
   onRead?: (url: string) => void;
 }) {
@@ -78,12 +78,12 @@ export default function ArticleCard({
             <ThumbButton
               type="up"
               active={feedback === "up"}
-              onClick={() => onFeedback(item.url!, item.title, "up")}
+              onClick={() => onFeedback(item.url!, item.title, "up", item.source, item.category)}
             />
             <ThumbButton
               type="down"
               active={feedback === "down"}
-              onClick={() => onFeedback(item.url!, item.title, "down")}
+              onClick={() => onFeedback(item.url!, item.title, "down", item.source, item.category)}
             />
           </div>
         )}

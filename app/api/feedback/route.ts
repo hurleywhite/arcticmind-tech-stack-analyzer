@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { article_url, article_title, feedback } = body;
+    const { article_url, article_title, feedback, source, category } = body;
 
     if (!article_url || !feedback || !["up", "down"].includes(feedback)) {
       return NextResponse.json({ error: "Invalid feedback" }, { status: 400 });
@@ -56,27 +56,42 @@ export async function POST(request: NextRequest) {
           .from("article_feedback")
           .delete()
           .eq("id", existing.id);
-        return NextResponse.json({ status: "removed" });
+      } else {
+        // Different feedback = update
+        await supabase
+          .from("article_feedback")
+          .update({
+            feedback,
+            article_title,
+            source: source || null,
+            category: category || null,
+          })
+          .eq("id", existing.id);
       }
-      // Different feedback = update
+    } else {
+      // New feedback
       await supabase
         .from("article_feedback")
-        .update({ feedback, article_title })
-        .eq("id", existing.id);
-      return NextResponse.json({ status: "updated", feedback });
+        .insert({
+          user_id: user.id,
+          article_url,
+          article_title: article_title || null,
+          feedback,
+          source: source || null,
+          category: category || null,
+        });
     }
 
-    // New feedback
+    // Invalidate preference cache so next feed generation recomputes
     await supabase
-      .from("article_feedback")
-      .insert({
-        user_id: user.id,
-        article_url,
-        article_title: article_title || null,
-        feedback,
-      });
+      .from("user_profiles")
+      .update({ preferences_cache: null, preferences_updated_at: null })
+      .eq("id", user.id);
 
-    return NextResponse.json({ status: "created", feedback });
+    return NextResponse.json({
+      status: existing?.feedback === feedback ? "removed" : existing ? "updated" : "created",
+      feedback: existing?.feedback === feedback ? null : feedback,
+    });
   } catch (error) {
     console.error("Feedback POST error:", error);
     return NextResponse.json({ error: "Failed to save feedback" }, { status: 500 });

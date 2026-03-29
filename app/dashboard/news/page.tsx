@@ -202,7 +202,9 @@ export default function NewsPage() {
   async function handleFeedback(
     articleUrl: string,
     articleTitle: string,
-    type: "up" | "down"
+    type: "up" | "down",
+    source?: string,
+    category?: string
   ) {
     const prev = feedbackMap[articleUrl];
     const newMap = { ...feedbackMap };
@@ -221,6 +223,8 @@ export default function NewsPage() {
           article_url: articleUrl,
           article_title: articleTitle,
           feedback: type,
+          source: source || null,
+          category: category || null,
         }),
       });
       if (!res.ok && prev) {

@@ -222,9 +222,8 @@ export async function generateFeed(
   profile: UserProfile,
   companyData: CompanyAnalysisCache | null,
   cachedCompanyFeed?: { tool_updates: FeedItem[]; company_news: CompanySection } | null,
-  downvotedTopics?: string[],
+  preferenceContext?: string,
   collectiveContext?: string,
-  upvotedTopics?: string[],
   articleCount?: number
 ): Promise<FeedData> {
   // Default to 8 articles, user can set 5-15
@@ -251,11 +250,11 @@ export async function generateFeed(
 
     // Only need user-level calls (2 in parallel, 25s timeout each)
     const [aiResult, indResult] = await Promise.all([
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, preferenceContext, collectiveContext, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, preferenceContext, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -274,16 +273,16 @@ export async function generateFeed(
 
     const [toolResult, aiResult, indResult] = await Promise.all([
       companyData
-        ? withTimeout(fetchToolUpdates(techStack, industry, downvotedTopics, upvotedTopics, Math.max(3, Math.ceil(targetArticles * 0.3))), 25000, "tool-updates").catch((e) => {
+        ? withTimeout(fetchToolUpdates(techStack, industry, preferenceContext, Math.max(3, Math.ceil(targetArticles * 0.3))), 25000, "tool-updates").catch((e) => {
             console.error("Tool updates failed:", e);
             return [] as FeedItem[];
           })
         : Promise.resolve([] as FeedItem[]),
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, preferenceContext, collectiveContext, Math.max(4, Math.ceil(targetArticles * 0.5))), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, preferenceContext, Math.max(2, Math.ceil(targetArticles * 0.2))), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -320,8 +319,7 @@ export async function generateFeed(
 async function fetchToolUpdates(
   techStack: string[],
   industry: string,
-  downvotedTopics?: string[],
-  upvotedTopics?: string[],
+  preferenceContext?: string,
   count: number = 3
 ): Promise<FeedItem[]> {
   if (techStack.length === 0) return [];
@@ -331,12 +329,6 @@ async function fetchToolUpdates(
 
   // Only search top 5 tools to keep it fast
   const searchTools = techStack.slice(0, 5);
-  const avoidBlock = downvotedTopics && downvotedTopics.length > 0
-    ? ` Avoid topics related to: ${downvotedTopics.join(", ")}.`
-    : "";
-  const boostBlock = upvotedTopics && upvotedTopics.length > 0
-    ? ` The user especially liked articles about: ${upvotedTopics.slice(0, 5).join("; ")}. Prioritize similar topics.`
-    : "";
 
   try {
     const response = await client.messages.create({
@@ -346,7 +338,8 @@ async function fetchToolUpdates(
       messages: [
         {
           role: "user",
-          content: `Today is ${today}. Search for recent significant news about these tools: ${searchTools.join(", ")}. PRIORITIZE breaking news from the last 48 hours. Also include major releases, breaking changes, important integrations, or security issues from the last 7 days. Only include genuinely newsworthy updates — not minor patches.${avoidBlock}${boostBlock}
+          content: `Today is ${today}. Search for recent significant news about these tools: ${searchTools.join(", ")}. PRIORITIZE breaking news from the last 48 hours. Also include major releases, breaking changes, important integrations, or security issues from the last 7 days. Only include genuinely newsworthy updates — not minor patches.
+${preferenceContext || ""}
 
 Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
 
@@ -363,7 +356,7 @@ Return ${count} articles as JSON array ONLY: [{"title":"...","summary":"one sent
   }
 }
 
-async function fetchAiTrends(userContext: string, downvotedTopics?: string[], collectiveContext?: string, upvotedTopics?: string[], count: number = 5): Promise<FeedItem[]> {
+async function fetchAiTrends(userContext: string, preferenceContext?: string, collectiveContext?: string, count: number = 5): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
 
@@ -377,14 +370,6 @@ async function fetchAiTrends(userContext: string, downvotedTopics?: string[], co
   const industry = userContext.match(/Industry: (.+)/)?.[1] || "technology";
   const customFocus = userContext.match(/Custom learning focus: "(.+)"/)?.[1] || "";
   const depth = userContext.match(/Content depth preference: (.+)/)?.[1] || "balanced";
-
-  const avoidBlock = downvotedTopics && downvotedTopics.length > 0
-    ? `\nAVOID these topics (user downvoted articles about them): ${downvotedTopics.join(", ")}`
-    : "";
-
-  const boostBlock = upvotedTopics && upvotedTopics.length > 0
-    ? `\nPOSITIVE SIGNALS — the user upvoted articles like these:\n${upvotedTopics.slice(0, 10).map(t => `- "${t}"`).join("\n")}\nPrioritize finding MORE articles on these topics and closely related subjects.`
-    : "";
 
   const seniorityFraming = seniority === "Executive" || seniority === "Founder" || seniority === "Director"
     ? "Focus on strategic implications, market shifts, ROI, and leadership decisions."
@@ -414,8 +399,7 @@ AI experience: ${level}
 Interests: ${interests}
 Goals: ${goals || "stay informed on AI"}
 ${customFocus ? `They specifically want to learn about: ${customFocus}` : ""}
-${avoidBlock}
-${boostBlock}
+${preferenceContext || ""}
 
 ${seniorityFraming}
 ${depthFraming}
@@ -450,20 +434,13 @@ async function fetchIndustryAiNews(
   industry: string,
   aiTools: string[],
   userContext: string,
-  downvotedTopics?: string[],
-  upvotedTopics?: string[],
+  preferenceContext?: string,
   count: number = 3
 ): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
   const goals = userContext.match(/AI goals: (.+)/)?.[1] || "";
   const role = userContext.match(/Role: (.+)/)?.[1] || "professional";
-  const avoidBlock = downvotedTopics && downvotedTopics.length > 0
-    ? ` Avoid: ${downvotedTopics.join(", ")}.`
-    : "";
-  const boostBlock = upvotedTopics && upvotedTopics.length > 0
-    ? ` The user especially liked articles about: ${upvotedTopics.slice(0, 5).join("; ")}. Find more like those.`
-    : "";
 
   try {
     const response = await client.messages.create({
@@ -473,7 +450,8 @@ async function fetchIndustryAiNews(
       messages: [
         {
           role: "user",
-          content: `Today is ${today}. Search for ${count} recent articles about AI adoption, strategy, or transformation in the ${industry} industry. PRIORITIZE articles from the last 48 hours. This person is a ${role} whose goals include: ${goals || "staying informed"}.${avoidBlock}${boostBlock}
+          content: `Today is ${today}. Search for ${count} recent articles about AI adoption, strategy, or transformation in the ${industry} industry. PRIORITIZE articles from the last 48 hours. This person is a ${role} whose goals include: ${goals || "staying informed"}.
+${preferenceContext || ""}
 
 Focus on business impact, case studies, and practical adoption stories — NOT just product announcements.
 

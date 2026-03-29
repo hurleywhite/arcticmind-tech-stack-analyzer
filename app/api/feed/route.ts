@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateFeed } from "@/lib/feed-generator";
 import { adaptCompanyData } from "@/lib/db-adapters";
 import { getCollectiveSignals, formatCollectiveContext } from "@/lib/collective-intel";
+import { buildUserPreferences, formatPreferenceContext } from "@/lib/preference-engine";
 
 export const maxDuration = 60;
 
@@ -171,36 +172,16 @@ export async function GET(request: NextRequest) {
       ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
       : "technology";
 
-    const [downvotesResult, upvotesResult, collectiveSignals] = await Promise.all([
-      supabase
-        .from("article_feedback")
-        .select("article_title")
-        .eq("user_id", user.id)
-        .eq("feedback", "down"),
-      supabase
-        .from("article_feedback")
-        .select("article_title")
-        .eq("user_id", user.id)
-        .eq("feedback", "up")
-        .order("created_at", { ascending: false })
-        .limit(20),
+    const [userPreferences, collectiveSignals] = await Promise.all([
+      buildUserPreferences(supabase, user.id),
       getCollectiveSignals(supabase, user.id, profile.ai_interests || [], industry),
     ]);
 
-    const downvotedTopics = (downvotesResult.data || [])
-      .map((d: { article_title: string | null }) => d.article_title)
-      .filter(Boolean) as string[];
-
-    const upvotedTopics = (upvotesResult.data || [])
-      .map((d: { article_title: string | null }) => d.article_title)
-      .filter(Boolean) as string[];
-
-    // Merge individual downvotes with collective avoid patterns
-    const allAvoidTopics = [...downvotedTopics, ...collectiveSignals.avoidPatterns];
+    const preferenceContext = formatPreferenceContext(userPreferences);
     const collectiveContext = formatCollectiveContext(collectiveSignals);
 
     console.log("[feed-route] Company data found:", !!companyData, "domain:", profile.company_domain);
-    console.log("[feed-route] Downvoted:", downvotedTopics.length, "Upvoted:", upvotedTopics.length, "Collective signals:", collectiveSignals.totalSignalUsers, "users");
+    console.log("[feed-route] Preferences:", userPreferences.total_feedback, "signals |", userPreferences.preferred_sources.length, "pref sources |", collectiveSignals.totalSignalUsers, "community users");
 
     // Check shared company feed cache
     let companyFeedCache = null;
@@ -224,7 +205,7 @@ export async function GET(request: NextRequest) {
     }
 
     const articleCount = profile.article_count || 8;
-    const feed = await generateFeed(profile, companyData, companyFeedCache, allAvoidTopics, collectiveContext, upvotedTopics, articleCount);
+    const feed = await generateFeed(profile, companyData, companyFeedCache, preferenceContext, collectiveContext, articleCount);
 
     // Cache shared company feed if we generated it fresh
     if (!companyFeedCache && companyData && profile.company_domain) {
@@ -313,27 +294,21 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Load downvoted topics + collective signals for the refresh
+      // Build fresh preferences + collective signals for the refresh
       const refreshIndustry = companyData?.summary
         ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
         : "technology";
 
-      const [refreshDownvotes, refreshCollective] = await Promise.all([
-        supabase
-          .from("article_feedback")
-          .select("article_title")
-          .eq("user_id", user.id)
-          .eq("feedback", "down"),
+      const [refreshPrefs, refreshCollective] = await Promise.all([
+        buildUserPreferences(supabase, user.id),
         getCollectiveSignals(supabase, user.id, profile.ai_interests || [], refreshIndustry),
       ]);
 
-      const refreshDownvotedTopics = (refreshDownvotes.data || [])
-        .map((d: { article_title: string | null }) => d.article_title)
-        .filter(Boolean) as string[];
-      const refreshAvoidTopics = [...refreshDownvotedTopics, ...refreshCollective.avoidPatterns];
+      const refreshPrefContext = formatPreferenceContext(refreshPrefs);
       const refreshCollectiveContext = formatCollectiveContext(refreshCollective);
+      const refreshArticleCount = profile.article_count || 8;
 
-      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshAvoidTopics, refreshCollectiveContext);
+      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext, refreshCollectiveContext, refreshArticleCount);
 
       await supabase.from("news_feeds").insert({
         user_id: profile.id,
