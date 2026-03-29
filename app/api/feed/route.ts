@@ -171,16 +171,27 @@ export async function GET(request: NextRequest) {
       ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
       : "technology";
 
-    const [downvotesResult, collectiveSignals] = await Promise.all([
+    const [downvotesResult, upvotesResult, collectiveSignals] = await Promise.all([
       supabase
         .from("article_feedback")
         .select("article_title")
         .eq("user_id", user.id)
         .eq("feedback", "down"),
+      supabase
+        .from("article_feedback")
+        .select("article_title")
+        .eq("user_id", user.id)
+        .eq("feedback", "up")
+        .order("created_at", { ascending: false })
+        .limit(20),
       getCollectiveSignals(supabase, user.id, profile.ai_interests || [], industry),
     ]);
 
     const downvotedTopics = (downvotesResult.data || [])
+      .map((d: { article_title: string | null }) => d.article_title)
+      .filter(Boolean) as string[];
+
+    const upvotedTopics = (upvotesResult.data || [])
       .map((d: { article_title: string | null }) => d.article_title)
       .filter(Boolean) as string[];
 
@@ -189,7 +200,7 @@ export async function GET(request: NextRequest) {
     const collectiveContext = formatCollectiveContext(collectiveSignals);
 
     console.log("[feed-route] Company data found:", !!companyData, "domain:", profile.company_domain);
-    console.log("[feed-route] Downvoted topics:", downvotedTopics.length, "Collective signals:", collectiveSignals.totalSignalUsers, "users");
+    console.log("[feed-route] Downvoted:", downvotedTopics.length, "Upvoted:", upvotedTopics.length, "Collective signals:", collectiveSignals.totalSignalUsers, "users");
 
     // Check shared company feed cache
     let companyFeedCache = null;
@@ -212,7 +223,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const feed = await generateFeed(profile, companyData, companyFeedCache, allAvoidTopics, collectiveContext);
+    const feed = await generateFeed(profile, companyData, companyFeedCache, allAvoidTopics, collectiveContext, upvotedTopics);
 
     // Cache shared company feed if we generated it fresh
     if (!companyFeedCache && companyData && profile.company_domain) {

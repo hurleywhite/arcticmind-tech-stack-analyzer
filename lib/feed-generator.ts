@@ -223,7 +223,8 @@ export async function generateFeed(
   companyData: CompanyAnalysisCache | null,
   cachedCompanyFeed?: { tool_updates: FeedItem[]; company_news: CompanySection } | null,
   downvotedTopics?: string[],
-  collectiveContext?: string
+  collectiveContext?: string,
+  upvotedTopics?: string[]
 ): Promise<FeedData> {
   const techStack = companyData?.tech_stack
     ? Object.values(companyData.tech_stack).flat().filter(Boolean)
@@ -247,11 +248,11 @@ export async function generateFeed(
 
     // Only need user-level calls (2 in parallel, 25s timeout each)
     const [aiResult, indResult] = await Promise.all([
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -270,16 +271,16 @@ export async function generateFeed(
 
     const [toolResult, aiResult, indResult] = await Promise.all([
       companyData
-        ? withTimeout(fetchToolUpdates(techStack, industry, downvotedTopics), 25000, "tool-updates").catch((e) => {
+        ? withTimeout(fetchToolUpdates(techStack, industry, downvotedTopics, upvotedTopics), 25000, "tool-updates").catch((e) => {
             console.error("Tool updates failed:", e);
             return [] as FeedItem[];
           })
         : Promise.resolve([] as FeedItem[]),
-      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext), 25000, "ai-trends").catch((e) => {
+      withTimeout(fetchAiTrends(userContext, downvotedTopics, collectiveContext, upvotedTopics), 25000, "ai-trends").catch((e) => {
         console.error("AI trends failed:", e);
         return [] as FeedItem[];
       }),
-      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics), 25000, "industry-news").catch((e) => {
+      withTimeout(fetchIndustryAiNews(industry, aiTools, userContext, downvotedTopics, upvotedTopics), 25000, "industry-news").catch((e) => {
         console.error("Industry news failed:", e);
         return [] as FeedItem[];
       }),
@@ -316,7 +317,8 @@ export async function generateFeed(
 async function fetchToolUpdates(
   techStack: string[],
   industry: string,
-  downvotedTopics?: string[]
+  downvotedTopics?: string[],
+  upvotedTopics?: string[]
 ): Promise<FeedItem[]> {
   if (techStack.length === 0) return [];
 
@@ -328,16 +330,23 @@ async function fetchToolUpdates(
   const avoidBlock = downvotedTopics && downvotedTopics.length > 0
     ? ` Avoid topics related to: ${downvotedTopics.join(", ")}.`
     : "";
+  const boostBlock = upvotedTopics && upvotedTopics.length > 0
+    ? ` The user especially liked articles about: ${upvotedTopics.slice(0, 5).join("; ")}. Prioritize similar topics.`
+    : "";
 
   try {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
       messages: [
         {
           role: "user",
-          content: `Today is ${today}. Search for recent significant news about these tools: ${searchTools.join(", ")}. Focus on major releases, breaking changes, important integrations, or security issues from the last 7 days. Only include genuinely newsworthy updates — not minor patches.${avoidBlock} Return 2-3 articles as JSON array ONLY: [{"title":"...","summary":"one sentence on what changed + one on why it matters for ${industry}","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
+          content: `Today is ${today}. Search for recent significant news about these tools: ${searchTools.join(", ")}. PRIORITIZE breaking news from the last 48 hours. Also include major releases, breaking changes, important integrations, or security issues from the last 7 days. Only include genuinely newsworthy updates — not minor patches.${avoidBlock}${boostBlock}
+
+Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
+
+Return 2-3 articles as JSON array ONLY: [{"title":"...","summary":"one sentence on what changed + one on why it matters for ${industry}","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
         },
       ],
     });
@@ -350,7 +359,7 @@ async function fetchToolUpdates(
   }
 }
 
-async function fetchAiTrends(userContext: string, downvotedTopics?: string[], collectiveContext?: string): Promise<FeedItem[]> {
+async function fetchAiTrends(userContext: string, downvotedTopics?: string[], collectiveContext?: string, upvotedTopics?: string[]): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
 
@@ -369,6 +378,10 @@ async function fetchAiTrends(userContext: string, downvotedTopics?: string[], co
     ? `\nAVOID these topics (user downvoted articles about them): ${downvotedTopics.join(", ")}`
     : "";
 
+  const boostBlock = upvotedTopics && upvotedTopics.length > 0
+    ? `\nPOSITIVE SIGNALS — the user upvoted articles like these:\n${upvotedTopics.slice(0, 10).map(t => `- "${t}"`).join("\n")}\nPrioritize finding MORE articles on these topics and closely related subjects.`
+    : "";
+
   const seniorityFraming = seniority === "Executive" || seniority === "Founder" || seniority === "Director"
     ? "Focus on strategic implications, market shifts, ROI, and leadership decisions."
     : seniority === "Manager" || seniority === "Team Lead"
@@ -385,7 +398,7 @@ async function fetchAiTrends(userContext: string, downvotedTopics?: string[], co
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
       messages: [
         {
           role: "user",
@@ -398,18 +411,23 @@ Interests: ${interests}
 Goals: ${goals || "stay informed on AI"}
 ${customFocus ? `They specifically want to learn about: ${customFocus}` : ""}
 ${avoidBlock}
+${boostBlock}
 
 ${seniorityFraming}
 ${depthFraming}
 
-Search for 5-6 recent AI articles from the last 7 days. MIX these types:
+CRITICAL: Start by searching for BREAKING AI NEWS from the last 48 hours. Include any major announcements, model releases, leaked information, funding rounds, acquisitions, or policy changes that happened today or yesterday.
+
+Then search for 4-5 more recent AI articles from the last 7 days. MIX these types:
 - 2-3 articles matching their specific interests and goals (NOT just tool announcements)
 - 1-2 articles about AI trends affecting their industry (${industry})
 - 1 article about AI strategy, adoption, or governance relevant to their role
 
 IMPORTANT: Do NOT focus exclusively on developer tools or model releases. This person's goals include: ${goals}. Match the content to those goals.
+
+Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
 ${collectiveContext || ""}
-Preferred sources: TechCrunch, The Verge, Ars Technica, Reuters, Axios, MIT Tech Review, a16z, McKinsey, HBR, VentureBeat, Wired, The New Stack, Simon Willison, Washington Post, The Decoder, Bloomberg, Bleeping Computer. But use ANY credible source.
+Preferred sources: TechCrunch, The Verge, Ars Technica, Reuters, Axios, MIT Tech Review, a16z, McKinsey, HBR, VentureBeat, Wired, The New Stack, Simon Willison, Washington Post, The Decoder, Bloomberg, Bleeping Computer, Mashable, The Information, Semafor. But use ANY credible source.
 
 Return ONLY a JSON array: [{"title":"...","summary":"2 sentences: what happened + why it matters for this person","url":"https://...","source":"publication name","date":"YYYY-MM-DD","category":"descriptive category","relevance_note":"1 sentence on why this was selected for them"}]`,
         },
@@ -428,7 +446,8 @@ async function fetchIndustryAiNews(
   industry: string,
   aiTools: string[],
   userContext: string,
-  downvotedTopics?: string[]
+  downvotedTopics?: string[],
+  upvotedTopics?: string[]
 ): Promise<FeedItem[]> {
   const client = getAnthropicClient();
   const today = getTodayDate();
@@ -437,16 +456,25 @@ async function fetchIndustryAiNews(
   const avoidBlock = downvotedTopics && downvotedTopics.length > 0
     ? ` Avoid: ${downvotedTopics.join(", ")}.`
     : "";
+  const boostBlock = upvotedTopics && upvotedTopics.length > 0
+    ? ` The user especially liked articles about: ${upvotedTopics.slice(0, 5).join("; ")}. Find more like those.`
+    : "";
 
   try {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
       messages: [
         {
           role: "user",
-          content: `Today is ${today}. Search for 2-3 recent articles about AI adoption, strategy, or transformation in the ${industry} industry. This person is a ${role} whose goals include: ${goals || "staying informed"}.${avoidBlock} Focus on business impact, case studies, and practical adoption stories — NOT just product announcements. Return ONLY JSON array: [{"title":"...","summary":"2 sentences: what happened + business impact","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"AI in ${industry}","relevance_note":"why this matters for their goals"}]`,
+          content: `Today is ${today}. Search for 2-3 recent articles about AI adoption, strategy, or transformation in the ${industry} industry. PRIORITIZE articles from the last 48 hours. This person is a ${role} whose goals include: ${goals || "staying informed"}.${avoidBlock}${boostBlock}
+
+Focus on business impact, case studies, and practical adoption stories — NOT just product announcements.
+
+Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
+
+Return ONLY JSON array: [{"title":"...","summary":"2 sentences: what happened + business impact","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"AI in ${industry}","relevance_note":"why this matters for their goals"}]`,
         },
       ],
     });

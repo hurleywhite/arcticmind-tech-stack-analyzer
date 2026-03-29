@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { TechStackResult, TechStack } from "@/lib/types";
 
-const CATEGORY_LABELS: Record<keyof TechStack, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   cloud_infrastructure: "Cloud & Infrastructure",
   data_engineering: "Data Engineering",
   backend: "Backend",
@@ -20,16 +19,37 @@ const CATEGORY_LABELS: Record<keyof TechStack, string> = {
   other: "Other",
 };
 
-const CONFIDENCE_COLORS = {
+const CONFIDENCE_COLORS: Record<string, string> = {
   high: "bg-green-100 text-green-800",
   medium: "bg-yellow-100 text-yellow-800",
   low: "bg-red-100 text-red-800",
 };
 
-export default function Home() {
+interface AnalysisResult {
+  company: string;
+  domain: string;
+  tech_stack: Record<string, string[]>;
+  summary: string;
+  jobs_analyzed: number;
+  confidence: string;
+  cached: boolean;
+  enrichment_source?: string;
+  products?: string[];
+  services?: string[];
+  industry?: string;
+  competitors?: string[];
+  recent_news?: string[];
+  ai_adoption?: string;
+  actionable_insights?: string[];
+  employee_count_estimate?: string;
+  founded_year?: string | null;
+  headquarters?: string | null;
+}
+
+export default function AnalyzerPage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<TechStackResult | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -43,7 +63,7 @@ export default function Home() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/analyze-stack", {
+      const response = await fetch("/api/company", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyUrl: url.trim() }),
@@ -72,7 +92,7 @@ export default function Home() {
   }
 
   const nonEmptyCategories = result
-    ? (Object.entries(result.tech_stack) as [keyof TechStack, string[]][]).filter(
+    ? Object.entries(result.tech_stack).filter(
         ([, techs]) => techs.length > 0
       )
     : [];
@@ -88,11 +108,11 @@ export default function Home() {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-            ArcticMind Tech Stack Analyzer
+            Company Analyzer
           </h1>
           <p className="mt-2 text-foreground/60">
-            Enter a company URL to infer their tech stack from public job
-            listings
+            Enter a company name or URL to get a full company digest — tech
+            stack, products, AI adoption, and actionable insights
           </p>
         </div>
 
@@ -103,7 +123,7 @@ export default function Home() {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="e.g. snowflake.com"
+              placeholder="e.g. snowflake.com or Cassidy AI"
               className="flex-1 rounded-lg border border-foreground/20 bg-background px-4 py-3 text-foreground placeholder:text-foreground/40 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               disabled={loading}
             />
@@ -122,10 +142,10 @@ export default function Home() {
           <div className="mb-8 rounded-lg border border-foreground/10 p-8 text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
             <p className="text-foreground/60">
-              Fetching job listings and analyzing tech stack...
+              Researching company profile, tech stack, and products...
             </p>
             <p className="mt-1 text-sm text-foreground/40">
-              This typically takes 10-15 seconds
+              This typically takes 15-30 seconds
             </p>
           </div>
         )}
@@ -140,72 +160,194 @@ export default function Home() {
         {/* Results */}
         {result && (
           <div className="space-y-6">
-            {/* Summary Header */}
+            {/* Company Header */}
             <div className="rounded-lg border border-foreground/10 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold">{result.company}</h2>
                   <p className="text-sm text-foreground/50">{result.domain}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-3 py-1 text-sm font-medium ${CONFIDENCE_COLORS[result.confidence]}`}
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${CONFIDENCE_COLORS[result.confidence] || CONFIDENCE_COLORS.low}`}
                   >
                     {result.confidence} confidence
                   </span>
-                  <span className="text-sm text-foreground/50">
-                    {result.jobs_analyzed} jobs analyzed
-                  </span>
+                  {result.enrichment_source && (
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
+                      {result.enrichment_source === "web_scrape"
+                        ? "Web Research"
+                        : "Jobs + Web"}
+                    </span>
+                  )}
+                  {result.jobs_analyzed > 0 && (
+                    <span className="text-sm text-foreground/50">
+                      {result.jobs_analyzed} jobs analyzed
+                    </span>
+                  )}
                 </div>
               </div>
-              <p className="mt-4 text-foreground/70">{result.summary}</p>
-              <p className="mt-2 text-sm text-foreground/40">
-                {totalTechs} technologies identified across{" "}
-                {nonEmptyCategories.length} categories
+              <p className="mt-4 text-foreground/70 leading-relaxed">
+                {result.summary}
               </p>
+
+              {/* Quick Facts */}
+              <div className="mt-4 flex flex-wrap gap-4 text-sm text-foreground/50">
+                {result.industry && (
+                  <span>
+                    🏢 {result.industry}
+                  </span>
+                )}
+                {result.headquarters && (
+                  <span>
+                    📍 {result.headquarters}
+                  </span>
+                )}
+                {result.founded_year && (
+                  <span>
+                    📅 Founded {result.founded_year}
+                  </span>
+                )}
+                {result.employee_count_estimate &&
+                  result.employee_count_estimate !== "unknown" && (
+                    <span>
+                      👥 {result.employee_count_estimate} employees
+                    </span>
+                  )}
+              </div>
             </div>
 
-            {/* Tech Stack Categories */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {nonEmptyCategories.map(([category, techs]) => (
-                <div
-                  key={category}
-                  className="rounded-lg border border-foreground/10 p-4"
-                >
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground/50">
-                    {CATEGORY_LABELS[category]}
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {techs.map((tech) => (
-                      <span
-                        key={tech}
-                        className="rounded-md bg-foreground/5 px-2.5 py-1 text-sm font-medium"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* AI Adoption */}
+            {result.ai_adoption && result.ai_adoption !== "Unknown" && (
+              <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-5">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-purple-400">
+                  AI Adoption
+                </h3>
+                <p className="text-foreground/70">{result.ai_adoption}</p>
+              </div>
+            )}
 
-            {/* Job Titles Sampled */}
-            {result.job_titles_sampled.length > 0 && (
-              <div className="rounded-lg border border-foreground/10 p-4">
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground/50">
-                  Job Titles Sampled
+            {/* Products & Services */}
+            {((result.products && result.products.length > 0) ||
+              (result.services && result.services.length > 0)) && (
+              <div className="rounded-lg border border-foreground/10 p-5">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground/50">
+                  Products & Services
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {result.job_titles_sampled.map((title, i) => (
+                  {result.products?.map((p, i) => (
                     <span
-                      key={i}
-                      className="rounded-md bg-foreground/5 px-2.5 py-1 text-xs"
+                      key={`p-${i}`}
+                      className="rounded-md bg-blue-500/10 px-3 py-1.5 text-sm font-medium text-blue-400"
                     >
-                      {title}
+                      {p}
+                    </span>
+                  ))}
+                  {result.services?.map((s, i) => (
+                    <span
+                      key={`s-${i}`}
+                      className="rounded-md bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400"
+                    >
+                      {s}
                     </span>
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Actionable Insights */}
+            {result.actionable_insights &&
+              result.actionable_insights.length > 0 && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-5">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-400">
+                    Actionable Insights
+                  </h3>
+                  <ul className="space-y-2">
+                    {result.actionable_insights.map((insight, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-sm text-foreground/70"
+                      >
+                        <span className="mt-0.5 text-amber-400">→</span>
+                        {insight}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+            {/* Recent News */}
+            {result.recent_news && result.recent_news.length > 0 && (
+              <div className="rounded-lg border border-foreground/10 p-5">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground/50">
+                  Recent News
+                </h3>
+                <ul className="space-y-2">
+                  {result.recent_news.map((news, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm text-foreground/60"
+                    >
+                      <span className="mt-0.5">📰</span>
+                      {news}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Competitors */}
+            {result.competitors && result.competitors.length > 0 && (
+              <div className="rounded-lg border border-foreground/10 p-5">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground/50">
+                  Key Competitors
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {result.competitors.map((c, i) => (
+                    <span
+                      key={i}
+                      className="rounded-md bg-foreground/5 px-3 py-1.5 text-sm font-medium"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tech Stack Categories */}
+            {nonEmptyCategories.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold">Tech Stack</h3>
+                  <p className="text-sm text-foreground/40">
+                    {totalTechs} technologies across{" "}
+                    {nonEmptyCategories.length} categories
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {nonEmptyCategories.map(([category, techs]) => (
+                    <div
+                      key={category}
+                      className="rounded-lg border border-foreground/10 p-4"
+                    >
+                      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground/50">
+                        {CATEGORY_LABELS[category] || category}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {techs.map((tech: string) => (
+                          <span
+                            key={tech}
+                            className="rounded-md bg-foreground/5 px-2.5 py-1 text-sm font-medium"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* JSON Toggle + Copy */}
@@ -230,11 +372,6 @@ export default function Home() {
                 </pre>
               )}
             </div>
-
-            {/* Timestamp */}
-            <p className="text-center text-xs text-foreground/30">
-              Analyzed at {new Date(result.last_analyzed).toLocaleString()}
-            </p>
           </div>
         )}
       </div>

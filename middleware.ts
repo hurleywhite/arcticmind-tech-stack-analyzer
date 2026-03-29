@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ["/feed", "/settings"];
+  const protectedPaths = ["/dashboard", "/feed", "/settings"];
   const isProtected = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
   // (Don't redirect /signup — user may need to complete onboarding)
   if (request.nextUrl.pathname === "/login" && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/feed";
+    url.pathname = "/dashboard/news";
     return NextResponse.redirect(url);
   }
 

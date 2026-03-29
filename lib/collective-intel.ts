@@ -13,6 +13,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 export interface CollectiveSignals {
   // Articles that got the most upvotes across all users (last 7 days)
   popularArticles: { title: string; url: string; upvotes: number }[];
+  // "Hot" articles with 3+ upvotes — strong community signal
+  hotArticles: { title: string; url: string; upvotes: number }[];
   // Topics/keywords that similar users upvoted
   trendingTopicsForPeers: string[];
   // Articles widely downvoted — avoid these patterns
@@ -76,9 +78,17 @@ export async function getCollectiveSignals(
       upvoteCounts.set(key, { title: row.article_title || "", url: row.article_url || "", count: 1 });
     }
   }
-  const popularArticles = [...upvoteCounts.values()]
-    .sort((a, b) => b.count - a.count)
+  const sortedArticles = [...upvoteCounts.values()]
+    .sort((a, b) => b.count - a.count);
+
+  const popularArticles = sortedArticles
     .slice(0, 10)
+    .map(a => ({ title: a.title, url: a.url, upvotes: a.count }));
+
+  // "Hot" articles — 3+ upvotes = strong community signal
+  const hotArticles = sortedArticles
+    .filter(a => a.count >= 3)
+    .slice(0, 5)
     .map(a => ({ title: a.title, url: a.url, upvotes: a.count }));
 
   // Process downvoted patterns — extract keywords from titles
@@ -146,6 +156,7 @@ export async function getCollectiveSignals(
 
   return {
     popularArticles,
+    hotArticles,
     trendingTopicsForPeers,
     avoidPatterns,
     totalSignalUsers: uniqueUsers.size,
@@ -159,6 +170,13 @@ export function formatCollectiveContext(signals: CollectiveSignals): string {
   if (signals.totalSignalUsers === 0) return "";
 
   let context = `\nCOLLECTIVE INTELLIGENCE (${signals.totalSignalUsers} users contributing signals):`;
+
+  if (signals.hotArticles.length > 0) {
+    context += `\nHOT THIS WEEK (3+ upvotes from the community — find MORE like these):`;
+    for (const article of signals.hotArticles) {
+      context += `\n  - "${article.title}" (${article.upvotes} upvotes)`;
+    }
+  }
 
   if (signals.popularArticles.length > 0) {
     context += `\nPopular articles this week (upvoted by multiple users):`;

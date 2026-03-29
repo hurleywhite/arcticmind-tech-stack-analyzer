@@ -112,7 +112,7 @@ export default function SignupPage() {
 
         if (profile?.onboarding_completed) {
           // Fully onboarded — go to feed
-          router.push("/feed");
+          router.push("/dashboard/news");
           return;
         }
 
@@ -305,7 +305,7 @@ export default function SignupPage() {
       .eq("id", user.id);
 
     setSaving(false);
-    router.push("/feed");
+    router.push("/dashboard/news");
     router.refresh();
   }
 
