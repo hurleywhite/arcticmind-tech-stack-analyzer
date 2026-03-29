@@ -7,34 +7,39 @@ import { buildUserPreferences, formatPreferenceContext } from "@/lib/preference-
 
 export const maxDuration = 60;
 
-const FEED_WINDOWS = [
-  { label: "7am", hour: 7 },
-  { label: "12pm", hour: 12 },
-  { label: "5pm", hour: 17 },
-  { label: "9pm", hour: 21 },
-];
+/**
+ * Adaptive cache TTL based on visit frequency.
+ * Counts how many feed generations happened in the last 7 days,
+ * and sets the cache TTL to 24 / visits_per_day hours.
+ * Floor: 2 hours (power users). Ceiling: 12 hours (casual users).
+ */
+async function getAdaptiveTtlHours(supabase: ReturnType<typeof Object>, userId: string): Promise<number> {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-function getCurrentWindow() {
-  const now = new Date();
-  const hour = now.getHours();
-  let currentIdx = -1;
-  for (let i = FEED_WINDOWS.length - 1; i >= 0; i--) {
-    if (hour >= FEED_WINDOWS[i].hour) { currentIdx = i; break; }
-  }
-  if (currentIdx === -1) {
-    const ws = new Date(now); ws.setDate(ws.getDate() - 1); ws.setHours(21, 0, 0, 0);
-    const we = new Date(now); we.setHours(7, 0, 0, 0);
-    return { label: "9pm", windowStart: ws, windowEnd: we };
-  }
-  const current = FEED_WINDOWS[currentIdx];
-  const ws = new Date(now); ws.setHours(current.hour, 0, 0, 0);
-  const we = new Date(now);
-  if (currentIdx < FEED_WINDOWS.length - 1) {
-    we.setHours(FEED_WINDOWS[currentIdx + 1].hour, 0, 0, 0);
-  } else {
-    we.setDate(we.getDate() + 1); we.setHours(7, 0, 0, 0);
-  }
-  return { label: current.label, windowStart: ws, windowEnd: we };
+  // @ts-expect-error supabase type
+  const { count } = await supabase
+    .from("news_feeds")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("generated_at", sevenDaysAgo.toISOString());
+
+  const feedsInLastWeek = count || 0;
+  const visitsPerDay = feedsInLastWeek / 7;
+
+  if (visitsPerDay <= 0) return 12; // New user — 12 hour cache
+  const ttl = Math.min(12, Math.max(2, Math.round(24 / visitsPerDay)));
+  return ttl;
+}
+
+function getWindowLabel(): string {
+  const hour = new Date().getHours();
+  if (hour < 7) return "overnight";
+  if (hour < 10) return "early-morning";
+  if (hour < 13) return "morning";
+  if (hour < 15) return "early-afternoon";
+  if (hour < 19) return "afternoon";
+  return "evening";
 }
 
 // Helper: get user profile — id column IS the auth user id
@@ -135,16 +140,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Current window feed
-    const window = getCurrentWindow();
+    // Adaptive cache: check if most recent feed is still fresh enough
+    const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
+    const windowLabel = getWindowLabel();
 
-    // Check cache (use profile.id for user_id)
     const { data: cachedFeed } = await supabase
       .from("news_feeds")
       .select("*")
       .eq("user_id", profile.id)
-      .eq("feed_window", window.label)
-      .gte("generated_at", window.windowStart.toISOString())
       .order("generated_at", { ascending: false })
       .limit(1)
       .single();
@@ -152,14 +155,22 @@ export async function GET(request: NextRequest) {
     if (cachedFeed) {
       const feedData = cachedFeed.feed_data || cachedFeed.articles;
       const ageMs = Date.now() - new Date(cachedFeed.generated_at).getTime();
-      return NextResponse.json({
-        feed: feedData,
-        cached: true,
-        stale: ageMs > 2 * 60 * 60 * 1000,
-        status: "complete",
-        feed_window: window.label,
-        generated_at: cachedFeed.generated_at,
-      });
+      const ttlMs = ttlHours * 60 * 60 * 1000;
+      const staleThresholdMs = 2 * 60 * 60 * 1000; // Show "stale" indicator after 2h
+
+      if (ageMs < ttlMs) {
+        // Cache is still fresh — serve it
+        return NextResponse.json({
+          feed: feedData,
+          cached: true,
+          stale: ageMs > staleThresholdMs,
+          status: "complete",
+          feed_window: windowLabel,
+          generated_at: cachedFeed.generated_at,
+          cache_ttl_hours: ttlHours,
+        });
+      }
+      // Cache expired — fall through to regeneration
     }
 
     // No cache — generate feed
@@ -182,16 +193,17 @@ export async function GET(request: NextRequest) {
 
     console.log("[feed-route] Company data found:", !!companyData, "domain:", profile.company_domain);
     console.log("[feed-route] Preferences:", userPreferences.total_feedback, "signals |", userPreferences.preferred_sources.length, "pref sources |", collectiveSignals.totalSignalUsers, "community users");
+    console.log("[feed-route] Adaptive TTL:", ttlHours, "hours for this user");
 
-    // Check shared company feed cache
+    // Check shared company feed cache (within last 4 hours)
     let companyFeedCache = null;
     if (profile.company_domain) {
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
       const { data: sharedFeed } = await supabase
         .from("company_feeds")
         .select("*")
         .eq("company_domain", profile.company_domain)
-        .eq("feed_window", window.label)
-        .gte("generated_at", window.windowStart.toISOString())
+        .gte("generated_at", fourHoursAgo)
         .order("generated_at", { ascending: false })
         .limit(1)
         .single();
@@ -211,22 +223,21 @@ export async function GET(request: NextRequest) {
     if (!companyFeedCache && companyData && profile.company_domain) {
       await supabase.from("company_feeds").insert({
         company_domain: profile.company_domain,
-        feed_window: window.label,
+        feed_window: windowLabel,
         tool_updates: feed.tool_updates,
         company_news: feed.company_news,
       });
     }
 
-    // Store user's feed (use profile.id as user_id)
+    // Store user's feed
+    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
     await supabase.from("news_feeds").insert({
       user_id: profile.id,
       company_domain: profile.company_domain,
       feed_data: feed,
-      feed_window: window.label,
-      window_start: window.windowStart.toISOString(),
-      window_end: window.windowEnd.toISOString(),
+      feed_window: windowLabel,
       generated_at: feed.generated_at,
-      expires_at: window.windowEnd.toISOString(),
+      expires_at: expiresAt,
     });
 
     return NextResponse.json({
@@ -234,8 +245,9 @@ export async function GET(request: NextRequest) {
       cached: false,
       stale: false,
       status: "complete",
-      feed_window: window.label,
+      feed_window: windowLabel,
       generated_at: feed.generated_at,
+      cache_ttl_hours: ttlHours,
     });
   } catch (error) {
     console.error("Feed error:", error);
@@ -256,33 +268,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.action === "refresh") {
-      const window = getCurrentWindow();
       const profile = await getProfile(supabase, user.id);
       if (!profile) {
         return NextResponse.json({ error: "Profile not found" }, { status: 404 });
       }
 
-      // Delete current window's feed
-      await supabase
-        .from("news_feeds")
-        .delete()
-        .eq("user_id", profile.id)
-        .eq("feed_window", window.label)
-        .gte("generated_at", window.windowStart.toISOString());
-
       const companyData = profile.company_domain
         ? await getCompanyData(supabase, profile.company_domain)
         : null;
 
-      // Use shared company cache if available
+      // Use shared company cache if available (within last 4 hours)
       let companyFeedCache = null;
       if (profile.company_domain) {
+        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
         const { data: sharedFeed } = await supabase
           .from("company_feeds")
           .select("*")
           .eq("company_domain", profile.company_domain)
-          .eq("feed_window", window.label)
-          .gte("generated_at", window.windowStart.toISOString())
+          .gte("generated_at", fourHoursAgo)
           .order("generated_at", { ascending: false })
           .limit(1)
           .single();
@@ -294,7 +297,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Build fresh preferences + collective signals for the refresh
+      // Build fresh preferences + collective signals
       const refreshIndustry = companyData?.summary
         ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
         : "technology";
@@ -307,18 +310,20 @@ export async function POST(request: NextRequest) {
       const refreshPrefContext = formatPreferenceContext(refreshPrefs);
       const refreshCollectiveContext = formatCollectiveContext(refreshCollective);
       const refreshArticleCount = profile.article_count || 8;
+      const refreshWindowLabel = getWindowLabel();
 
       const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext, refreshCollectiveContext, refreshArticleCount);
+
+      const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
+      const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
 
       await supabase.from("news_feeds").insert({
         user_id: profile.id,
         company_domain: profile.company_domain,
         feed_data: feed,
-        feed_window: window.label,
-        window_start: window.windowStart.toISOString(),
-        window_end: window.windowEnd.toISOString(),
+        feed_window: refreshWindowLabel,
         generated_at: feed.generated_at,
-        expires_at: window.windowEnd.toISOString(),
+        expires_at: expiresAt,
       });
 
       return NextResponse.json({
@@ -326,8 +331,9 @@ export async function POST(request: NextRequest) {
         cached: false,
         stale: false,
         status: "complete",
-        feed_window: window.label,
+        feed_window: refreshWindowLabel,
         generated_at: feed.generated_at,
+        cache_ttl_hours: ttlHours,
       });
     }
 

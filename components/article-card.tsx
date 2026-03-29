@@ -19,8 +19,8 @@ export default function ArticleCard({
   return (
     <article className={`group rounded-xl border p-5 transition-all hover:border-foreground/20 hover:bg-foreground/[0.04] ${
       isRead
-        ? "border-foreground/8 bg-foreground/[0.01] opacity-70"
-        : "border-foreground/12 bg-foreground/[0.02]"
+        ? "border-foreground/10 bg-foreground/[0.01] opacity-80"
+        : "border-foreground/15 bg-foreground/[0.02]"
     }`}>
       <div className="mb-2 flex items-center gap-2">
         {item.category && (
@@ -29,14 +29,14 @@ export default function ArticleCard({
           </span>
         )}
         {item.date && (
-          <span className="text-xs text-foreground/50">{item.date}</span>
+          <span className="text-xs text-foreground/60">{item.date}</span>
         )}
         {isRead && (
           <span className="text-[10px] text-foreground/40">&check; read</span>
         )}
       </div>
 
-      <h3 className={`mb-2 text-[15px] leading-snug ${isRead ? "font-medium text-foreground/70" : "font-semibold text-foreground"}`}>
+      <h3 className={`mb-2 text-[15px] leading-snug ${isRead ? "font-medium text-foreground/80" : "font-semibold text-foreground"}`}>
         {item.url ? (
           <a
             href={item.url}
@@ -52,7 +52,7 @@ export default function ArticleCard({
         )}
       </h3>
 
-      <p className="text-sm leading-relaxed text-foreground/75">
+      <p className="text-sm leading-relaxed text-foreground/85">
         {item.summary}
       </p>
 
@@ -68,7 +68,7 @@ export default function ArticleCard({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-foreground/50 hover:text-foreground/70 transition-colors"
+            className="text-xs text-foreground/60 hover:text-foreground/80 transition-colors"
           >
             {item.source} &nearr;
           </a>
