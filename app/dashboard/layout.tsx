@@ -9,7 +9,7 @@ const TABS = [
   { label: "News Feed", href: "/dashboard/news", icon: "📰" },
   { label: "Learning", href: "/dashboard/learn", icon: "💡" },
   { label: "Tooling Hub", href: "/dashboard/hub", icon: "🛠️" },
-  { label: "Analyzer", href: "/analyzer", icon: "🔍" },
+  { label: "Analyzer", href: "/dashboard/analyzer", icon: "🔍" },
   { label: "Settings", href: "/dashboard/settings", icon: "⚙️" },
 ];
 
@@ -51,7 +51,6 @@ export default function DashboardLayout({
   }
 
   function isActive(href: string) {
-    if (href === "/analyzer") return pathname === "/analyzer";
     return pathname.startsWith(href);
   }
 
