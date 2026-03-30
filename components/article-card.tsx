@@ -87,7 +87,7 @@ export default function ArticleCard({
         )}
       </div>
 
-      <h3 className={`mb-2 text-[15px] leading-snug ${isRead ? "font-medium text-foreground/80" : "font-semibold text-foreground"}`}>
+      <h3 className={`mb-2 text-[15px] font-semibold leading-snug ${isRead ? "text-foreground/80" : "text-foreground"}`}>
         {item.url ? (
           <a
             href={item.url}
