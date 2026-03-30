@@ -149,8 +149,8 @@ export default function LandingPage() {
               </div>
               <h3 className="mb-1 font-semibold">Open your feed</h3>
               <p className="text-sm text-foreground/45">
-                News, learning, and tools — all tailored. Gets smarter the more
-                you use it.
+                News, learning, and tools — all tailored. Becomes more
+                personalized the more you use it.
               </p>
             </div>
           </div>
