@@ -40,7 +40,7 @@ function Modal({
 }
 
 export default function HubPage() {
-  const [activeTab, setActiveTab] = useState<HubTab>("prompts");
+  const [activeTab, setActiveTab] = useState<HubTab>("tools");
   const [prompts, setPrompts] = useState<HubPrompt[]>([]);
   const [tools, setTools] = useState<HubTool[]>([]);
   const [tasks, setTasks] = useState<HubTask[]>([]);
@@ -160,8 +160,8 @@ export default function HubPage() {
       <div className="mb-4 flex gap-1 rounded-xl bg-foreground/5 p-1">
         {(
           [
-            ["prompts", "Prompts", prompts.length],
             ["tools", "Tools", tools.length],
+            ["prompts", "Prompts", prompts.length],
             ["tasks", "Tasks", tasks.length],
           ] as [HubTab, string, number][]
         ).map(([tab, label, count]) => (
