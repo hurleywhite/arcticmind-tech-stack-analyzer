@@ -41,16 +41,16 @@ export default function LandingPage() {
       <section className="px-6 py-24 text-center">
         <div className="mx-auto max-w-3xl">
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-blue-400">
-            Your company. Your stack. Your feed.
+            Your company. Your background. Your feed.
           </p>
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-            One place to stay sharp{" "}
-            <span className="text-blue-500">on AI</span>
+            One place to stay sharp on <span className="text-blue-500">AI</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-foreground/50 md:text-xl leading-relaxed">
-            ArcticPulse scans your company&apos;s tech stack, then delivers a
-            daily feed of news, tools, and learning paths matched to your role
-            and goals. Not generic AI hype — actionable intelligence.
+            ArcticPulse scans your company&apos;s tech stack, background, and
+            news, then delivers a multi-daily feed of news, tools, and learning
+            paths matched to your role and goals. Not generic AI hype...
+            actionable intelligence.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
@@ -73,7 +73,7 @@ export default function LandingPage() {
       <section className="border-t border-foreground/10 px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-4 text-center text-2xl font-bold md:text-3xl">
-            Four modules, one workspace
+            Four functions, one workspace
           </h2>
           <p className="mx-auto mb-14 max-w-xl text-center text-foreground/45">
             Each one learns from the others. Upvote a news article — your
