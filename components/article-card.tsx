@@ -3,6 +3,53 @@
 import { FeedItem } from "@/lib/feed-types";
 import ThumbButton from "./thumb-button";
 
+function getCategoryColor(category: string): string {
+  const cat = category.toLowerCase();
+
+  // Breaking news / major announcements
+  if (cat.includes("breaking") || cat.includes("announcement") || cat.includes("launch") || cat.includes("release"))
+    return "bg-red-500/15 text-red-500";
+
+  // Regulation, policy, governance, compliance
+  if (cat.includes("regulat") || cat.includes("policy") || cat.includes("governance") || cat.includes("compliance") || cat.includes("ethics"))
+    return "bg-amber-500/15 text-amber-500";
+
+  // Tool updates, product updates
+  if (cat.includes("tool") || cat.includes("update") || cat.includes("product") || cat.includes("integration"))
+    return "bg-cyan-500/15 text-cyan-500";
+
+  // Adoption, transformation, enterprise, case study
+  if (cat.includes("adoption") || cat.includes("transformation") || cat.includes("enterprise") || cat.includes("case stud") || cat.includes("deployment"))
+    return "bg-emerald-500/15 text-emerald-500";
+
+  // Research, reports, data, statistics
+  if (cat.includes("research") || cat.includes("report") || cat.includes("statistic") || cat.includes("survey") || cat.includes("study"))
+    return "bg-violet-500/15 text-violet-500";
+
+  // Strategy, leadership, business
+  if (cat.includes("strateg") || cat.includes("leadership") || cat.includes("business") || cat.includes("investment") || cat.includes("funding"))
+    return "bg-orange-500/15 text-orange-500";
+
+  // Agentic AI, agents, automation
+  if (cat.includes("agent") || cat.includes("automat") || cat.includes("workflow"))
+    return "bg-pink-500/15 text-pink-500";
+
+  // Industry-specific (AI in X)
+  if (cat.includes("ai in ") || cat.includes("industry") || cat.includes("sector") || cat.includes("healthcare") || cat.includes("finance"))
+    return "bg-teal-500/15 text-teal-500";
+
+  // Tutorial, how-to, guide, implementation
+  if (cat.includes("tutorial") || cat.includes("how-to") || cat.includes("guide") || cat.includes("implement") || cat.includes("practical"))
+    return "bg-indigo-500/15 text-indigo-500";
+
+  // Technology (general AI/ML/LLM)
+  if (cat.includes("technolog") || cat.includes("ai ") || cat.includes("model") || cat.includes("llm") || cat.includes("machine learning"))
+    return "bg-blue-500/15 text-blue-500";
+
+  // Default
+  return "bg-blue-500/15 text-blue-500";
+}
+
 export default function ArticleCard({
   item,
   feedback,
@@ -28,7 +75,7 @@ export default function ArticleCard({
     }`}>
       <div className="mb-2 flex items-center gap-2">
         {item.category && (
-          <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-500">
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${getCategoryColor(item.category)}`}>
             {item.category}
           </span>
         )}
