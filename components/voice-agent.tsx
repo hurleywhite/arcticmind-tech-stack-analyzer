@@ -26,6 +26,7 @@ function VoiceAgentInner() {
   const [mode, setMode] = useState<"onboarding" | "qa">("qa");
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [textInput, setTextInput] = useState("");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const conversationRef = useRef<any>(null);
@@ -243,10 +244,43 @@ function VoiceAgentInner() {
             <div ref={transcriptEndRef} />
           </div>
 
-          <div className="border-t border-foreground/10 px-4 py-2">
-            <p className="text-[10px] text-foreground/30 text-center">
-              {isConnected ? "Speak naturally \u2014 Pulse is listening" : "Click the mic to start"}
-            </p>
+          <div className="border-t border-foreground/10 px-3 py-2">
+            {isConnected ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!textInput.trim() || !conversationRef.current) return;
+                  const msg = textInput.trim();
+                  setTextInput("");
+                  setTranscript((prev) => [...prev, { role: "user", text: msg, timestamp: new Date() }]);
+                  try {
+                    conversationRef.current.sendUserMessage(msg);
+                  } catch {
+                    // fallback — some SDK versions use different method name
+                    try { conversationRef.current.sendContextualUpdate(msg); } catch { /* ignore */ }
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Type or speak..."
+                  className="flex-1 rounded-lg border border-foreground/15 bg-foreground/[0.03] px-3 py-1.5 text-sm text-foreground placeholder:text-foreground/30 focus:border-blue-500 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
+                >
+                  Send
+                </button>
+              </form>
+            ) : (
+              <p className="text-[10px] text-foreground/30 text-center">
+                Click the mic to start
+              </p>
+            )}
           </div>
         </div>
       )}
