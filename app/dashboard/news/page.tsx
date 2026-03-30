@@ -453,37 +453,6 @@ export default function NewsPage() {
             range={activeRange}
           />
 
-          {/* Company Section */}
-          {feed.company_news && (
-            <FeedSection icon="📌" title="For Your Company">
-              <div className="rounded-xl border border-foreground/8 bg-foreground/[0.02] p-5">
-                <h3 className="text-lg font-bold text-foreground/90">
-                  {feed.company_news.company_name}
-                </h3>
-                <p className="mt-1 text-xs text-foreground/30">
-                  {feed.company_news.domain}
-                </p>
-                <p className="mt-3 text-sm text-foreground/55 leading-relaxed">
-                  {feed.company_news.summary}
-                </p>
-                {feed.company_news.top_technologies.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {feed.company_news.top_technologies
-                      .slice(0, 12)
-                      .map((tech) => (
-                        <span
-                          key={tech}
-                          className="rounded-full bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/50"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </FeedSection>
-          )}
-
           {/* Tool Updates */}
           {filteredFeed!.tool_updates.length > 0 && (
             <FeedSection icon="🔧" title="Your Tools">
@@ -517,6 +486,37 @@ export default function NewsPage() {
                   onBookmark={toggleBookmark}
                 />
               ))}
+            </FeedSection>
+          )}
+
+          {/* Company Section — at bottom for context */}
+          {feed.company_news && (
+            <FeedSection icon="📌" title="Your Company Profile">
+              <div className="rounded-xl border border-foreground/8 bg-foreground/[0.02] p-5">
+                <h3 className="text-lg font-bold text-foreground/90">
+                  {feed.company_news.company_name}
+                </h3>
+                <p className="mt-1 text-xs text-foreground/30">
+                  {feed.company_news.domain}
+                </p>
+                <p className="mt-3 text-sm text-foreground/55 leading-relaxed">
+                  {feed.company_news.summary}
+                </p>
+                {feed.company_news.top_technologies.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {feed.company_news.top_technologies
+                      .slice(0, 12)
+                      .map((tech) => (
+                        <span
+                          key={tech}
+                          className="rounded-full bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/50"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
             </FeedSection>
           )}
 
