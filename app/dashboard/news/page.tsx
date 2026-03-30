@@ -473,7 +473,7 @@ export default function NewsPage() {
 
           {/* AI Trends */}
           {filteredFeed!.ai_trends.length > 0 && (
-            <FeedSection icon="🤖" title="AI Trends">
+            <FeedSection icon="🤖" title="AI News & Insights">
               {filteredFeed!.ai_trends.map((item, i) => (
                 <ArticleCard
                   key={`trend-${i}`}
