@@ -93,27 +93,41 @@ interface TechStack {
   [category: string]: string[];
 }
 
+export interface FeedbackSignals {
+  upvotedSources: string[];    // source names from thumbs-up articles
+  upvotedCategories: string[]; // categories from thumbs-up articles
+  upvotedKeywords: string[];   // keywords extracted from upvoted article titles
+}
+
 export function getMatchedHubItems(
   role: string | null,
   seniority: string | null,
   aiInterests: string[],
   aiGoals: string[],
   techStack: TechStack | null,
-  maxPerType: number = 6
+  maxPerType: number = 6,
+  feedbackSignals?: FeedbackSignals
 ): { tools: CatalogTool[]; prompts: CatalogPrompt[]; tasks: CatalogTask[] } {
   const roleCategories = detectRoleCategory(role, seniority);
   const flatTech = techStack
     ? Object.values(techStack).flat().map((t) => t.toLowerCase())
     : [];
+  const upSources = (feedbackSignals?.upvotedSources || []).map((s) => s.toLowerCase());
+  const upCategories = (feedbackSignals?.upvotedCategories || []).map((c) => c.toLowerCase());
+  const upKeywords = (feedbackSignals?.upvotedKeywords || []).map((k) => k.toLowerCase());
 
   // Score tools
   const scoredTools = TOOL_CATALOG.map((tool) => {
     let score = 0;
     if (tool.roles.some((r) => roleCategories.includes(r))) score += 10;
-    // Tech stack overlap: tool name appears in company tech
     if (flatTech.some((t) => t.toLowerCase().includes(tool.name.toLowerCase()))) score += 8;
     if (tool.interest_tags.some((t) => aiInterests.includes(t))) score += 5;
     if (tool.audience_level.includes((seniority || "intermediate").toLowerCase())) score += 2;
+    // Feedback boost: tool name mentioned in upvoted article sources or keywords
+    if (upSources.some((s) => s.includes(tool.name.toLowerCase()))) score += 6;
+    if (upKeywords.some((k) => k.includes(tool.name.toLowerCase()) || tool.name.toLowerCase().includes(k))) score += 4;
+    // Category overlap: tool categories match upvoted article categories
+    if (tool.categories.some((c) => upCategories.includes(c))) score += 3;
     return { item: tool, score };
   })
     .filter((s) => s.score > 0)
@@ -126,6 +140,9 @@ export function getMatchedHubItems(
     let score = 0;
     if (prompt.roles.some((r) => roleCategories.includes(r))) score += 10;
     if (prompt.interest_tags.some((t) => aiInterests.includes(t))) score += 5;
+    // Feedback boost: prompt tags match upvoted categories
+    if (prompt.tags.some((t) => upCategories.includes(t.toLowerCase()))) score += 4;
+    if (upKeywords.some((k) => prompt.title.toLowerCase().includes(k))) score += 3;
     return { item: prompt, score };
   })
     .filter((s) => s.score > 0)
@@ -139,6 +156,9 @@ export function getMatchedHubItems(
     if (task.roles.some((r) => roleCategories.includes(r))) score += 10;
     if (task.interest_tags.some((t) => aiInterests.includes(t))) score += 5;
     if (task.ai_goals.some((g) => aiGoals.includes(g))) score += 4;
+    // Feedback boost: task linked tools match upvoted keywords
+    if (task.linked_tool_names.some((t) => upKeywords.some((k) => t.toLowerCase().includes(k)))) score += 4;
+    if (upCategories.some((c) => task.title.toLowerCase().includes(c))) score += 3;
     return { item: task, score };
   })
     .filter((s) => s.score > 0)

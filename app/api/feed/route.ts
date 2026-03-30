@@ -183,16 +183,24 @@ export async function GET(request: NextRequest) {
       ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
       : "technology";
 
-    const [userPreferences, collectiveSignals] = await Promise.all([
+    const [userPreferences, collectiveSignals, hubToolsRes] = await Promise.all([
       buildUserPreferences(supabase, user.id),
       getCollectiveSignals(supabase, user.id, profile.ai_interests || [], industry),
+      supabase.from("hub_tools").select("name").eq("user_id", user.id),
     ]);
 
     const preferenceContext = formatPreferenceContext(userPreferences);
     const collectiveContext = formatCollectiveContext(collectiveSignals);
 
+    // Build hub tools context — tools the user actively uses/tracks
+    const hubToolNames = (hubToolsRes.data || []).map((t: { name: string }) => t.name);
+    const hubToolsContext = hubToolNames.length > 0
+      ? `\n\nUSER'S ACTIVE TOOLS (from their Tooling Hub — they actively use these, prioritize updates about them):\n${hubToolNames.join(", ")}`
+      : "";
+
     console.log("[feed-route] Company data found:", !!companyData, "domain:", profile.company_domain);
     console.log("[feed-route] Preferences:", userPreferences.total_feedback, "signals |", userPreferences.preferred_sources.length, "pref sources |", collectiveSignals.totalSignalUsers, "community users");
+    console.log("[feed-route] Hub tools:", hubToolNames.length, "active tools");
     console.log("[feed-route] Adaptive TTL:", ttlHours, "hours for this user");
 
     // Check shared company feed cache (within last 4 hours)
@@ -217,7 +225,7 @@ export async function GET(request: NextRequest) {
     }
 
     const articleCount = profile.article_count || 8;
-    const feed = await generateFeed(profile, companyData, companyFeedCache, preferenceContext, collectiveContext, articleCount);
+    const feed = await generateFeed(profile, companyData, companyFeedCache, preferenceContext + hubToolsContext, collectiveContext, articleCount);
 
     // Cache shared company feed if we generated it fresh
     if (!companyFeedCache && companyData && profile.company_domain) {
@@ -302,17 +310,22 @@ export async function POST(request: NextRequest) {
         ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
         : "technology";
 
-      const [refreshPrefs, refreshCollective] = await Promise.all([
+      const [refreshPrefs, refreshCollective, refreshHubTools] = await Promise.all([
         buildUserPreferences(supabase, user.id),
         getCollectiveSignals(supabase, user.id, profile.ai_interests || [], refreshIndustry),
+        supabase.from("hub_tools").select("name").eq("user_id", user.id),
       ]);
 
       const refreshPrefContext = formatPreferenceContext(refreshPrefs);
       const refreshCollectiveContext = formatCollectiveContext(refreshCollective);
+      const refreshHubToolNames = (refreshHubTools.data || []).map((t: { name: string }) => t.name);
+      const refreshHubToolsCtx = refreshHubToolNames.length > 0
+        ? `\n\nUSER'S ACTIVE TOOLS (from their Tooling Hub):\n${refreshHubToolNames.join(", ")}`
+        : "";
       const refreshArticleCount = profile.article_count || 8;
       const refreshWindowLabel = getWindowLabel();
 
-      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext, refreshCollectiveContext, refreshArticleCount);
+      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext + refreshHubToolsCtx, refreshCollectiveContext, refreshArticleCount);
 
       const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
       const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
