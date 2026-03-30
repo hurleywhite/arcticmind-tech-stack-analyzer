@@ -7,8 +7,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 
-// Voice agent temporarily disabled — SDK causing client crash
-// const VoiceAgent = dynamic(() => import("@/components/voice-agent").catch(() => () => null), { ssr: false });
+const VoiceAgent = dynamic(() => import("@/components/voice-agent").catch(() => () => null), { ssr: false });
 
 const TABS = [
   { label: "News Feed", href: "/dashboard/news", icon: "📰" },
@@ -111,7 +110,7 @@ export default function DashboardLayout({
       </header>
 
       <main>{children}</main>
-      {/* <VoiceAgent /> */}
+      <VoiceAgent />
     </div>
   );
 }

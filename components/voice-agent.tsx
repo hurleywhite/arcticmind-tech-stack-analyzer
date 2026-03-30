@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useConversation } from "@elevenlabs/react";
 import { voiceToolHandlers, clientToolDefinitions } from "@/lib/voice-tools";
 
 type TranscriptEntry = {
@@ -13,8 +12,6 @@ type TranscriptEntry = {
 
 export default function VoiceAgent() {
   const envAgentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
-
-  // Don't render anything if no agent ID configured
   if (!envAgentId) return null;
 
   return <VoiceAgentInner />;
@@ -27,25 +24,12 @@ function VoiceAgentInner() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [mode, setMode] = useState<"onboarding" | "qa">("qa");
-  const [agentId, setAgentId] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversationRef = useRef<any>(null);
 
-  const conversation = useConversation({
-    onMessage: (message) => {
-      if (message.message) {
-        setTranscript((prev) => [
-          ...prev,
-          { role: message.source === "ai" ? "agent" : "user", text: message.message, timestamp: new Date() },
-        ]);
-      }
-    },
-    onError: (error) => {
-      console.error("Voice agent error:", error);
-      setSessionError("Voice connection lost. Click the mic to reconnect.");
-    },
-  });
-
-  // Auto-scroll transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
@@ -59,6 +43,9 @@ function VoiceAgentInner() {
       // Request mic permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
+      // Lazy-import the SDK only when user clicks mic
+      const { Conversation } = await import("@elevenlabs/client");
+
       // Fetch session config from our API
       const res = await fetch("/api/voice/session", { method: "POST" });
       if (!res.ok) {
@@ -68,19 +55,17 @@ function VoiceAgentInner() {
 
       const session = await res.json();
       setMode(session.mode);
-      setAgentId(session.agentId);
 
       if (!session.agentId) {
-        throw new Error("No ElevenLabs Agent ID configured. Add NEXT_PUBLIC_ELEVENLABS_AGENT_ID to your environment.");
+        throw new Error("No ElevenLabs Agent ID configured.");
       }
 
       // Build client tools handler map
-      const clientTools: Record<string, (params: Record<string, unknown>) => Promise<string>> = {};
+      const clientTools: Record<string, (params: Record<string, unknown>) => Promise<string | undefined>> = {};
       for (const toolDef of clientToolDefinitions) {
         if (voiceToolHandlers[toolDef.name]) {
           clientTools[toolDef.name] = async (params: Record<string, unknown>) => {
             const result = await voiceToolHandlers[toolDef.name](params);
-            // Handle onboarding completion redirect
             if (toolDef.name === "completeOnboarding" && result.includes("complete")) {
               setTimeout(() => {
                 router.push("/dashboard/news");
@@ -92,8 +77,8 @@ function VoiceAgentInner() {
         }
       }
 
-      // Start the ElevenLabs conversation
-      await conversation.startSession({
+      // Start the conversation using the client SDK directly
+      const conversation = await Conversation.startSession({
         agentId: session.agentId,
         overrides: {
           agent: {
@@ -103,7 +88,31 @@ function VoiceAgentInner() {
           },
         },
         clientTools,
+        onMessage: (message: { message: string; source: string }) => {
+          if (message.message) {
+            setTranscript((prev) => [
+              ...prev,
+              { role: message.source === "ai" ? "agent" : "user", text: message.message, timestamp: new Date() },
+            ]);
+          }
+        },
+        onError: (error: unknown) => {
+          console.error("Voice agent error:", error);
+          setSessionError("Voice connection lost. Click the mic to reconnect.");
+        },
+        onModeChange: (props: { mode: string }) => {
+          setIsSpeaking(props.mode === "speaking");
+        },
+        onConnect: () => {
+          setIsConnected(true);
+        },
+        onDisconnect: () => {
+          setIsConnected(false);
+          setIsSpeaking(false);
+        },
       });
+
+      conversationRef.current = conversation;
 
       setTranscript([{
         role: "agent",
@@ -113,24 +122,27 @@ function VoiceAgentInner() {
         timestamp: new Date(),
       }]);
     } catch (err) {
+      console.error("Voice session start error:", err);
       setSessionError(err instanceof Error ? err.message : "Failed to start voice session");
     } finally {
       setSessionLoading(false);
     }
-  }, [conversation, router]);
+  }, [router]);
 
   const endSession = useCallback(async () => {
     try {
-      await conversation.endSession();
+      if (conversationRef.current) {
+        await conversationRef.current.endSession();
+        conversationRef.current = null;
+      }
     } catch {
       // ignore
     }
+    setIsConnected(false);
+    setIsSpeaking(false);
     setTranscript([]);
     setIsOpen(false);
-  }, [conversation]);
-
-  const isConnected = conversation.status === "connected";
-  const isSpeaking = conversation.isSpeaking;
+  }, []);
 
   return (
     <>
@@ -159,7 +171,6 @@ function VoiceAgentInner() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
         ) : isConnected ? (
           isSpeaking ? (
-            // Waveform animation
             <div className="flex items-center gap-0.5">
               {[1, 2, 3, 4].map((i) => (
                 <div
@@ -174,7 +185,6 @@ function VoiceAgentInner() {
               ))}
             </div>
           ) : (
-            // Listening mic (pulsing green)
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -182,7 +192,6 @@ function VoiceAgentInner() {
             </svg>
           )
         ) : (
-          // Idle mic
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/50">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -194,7 +203,6 @@ function VoiceAgentInner() {
       {/* Transcript Panel */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-50 w-80 max-h-96 rounded-xl border border-foreground/15 bg-background shadow-2xl flex flex-col overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${isConnected ? "bg-emerald-500" : "bg-foreground/30"}`} />
@@ -202,34 +210,23 @@ function VoiceAgentInner() {
                 {mode === "onboarding" ? "Setup Assistant" : "Pulse"}
               </span>
             </div>
-            <button
-              onClick={endSession}
-              className="text-xs text-foreground/40 hover:text-foreground/60"
-            >
+            <button onClick={endSession} className="text-xs text-foreground/40 hover:text-foreground/60">
               End
             </button>
           </div>
 
-          {/* Transcript */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {sessionError && (
-              <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">
-                {sessionError}
-              </p>
+              <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{sessionError}</p>
             )}
 
             {transcript.map((entry, i) => (
-              <div
-                key={i}
-                className={`flex ${entry.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    entry.role === "user"
-                      ? "bg-blue-500/15 text-foreground/80"
-                      : "bg-foreground/5 text-foreground/70"
-                  }`}
-                >
+              <div key={i} className={`flex ${entry.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  entry.role === "user"
+                    ? "bg-blue-500/15 text-foreground/80"
+                    : "bg-foreground/5 text-foreground/70"
+                }`}>
                   {entry.text}
                 </div>
               </div>
@@ -246,10 +243,9 @@ function VoiceAgentInner() {
             <div ref={transcriptEndRef} />
           </div>
 
-          {/* Footer hint */}
           <div className="border-t border-foreground/10 px-4 py-2">
             <p className="text-[10px] text-foreground/30 text-center">
-              {isConnected ? "Speak naturally — Pulse is listening" : "Click the mic to start"}
+              {isConnected ? "Speak naturally \u2014 Pulse is listening" : "Click the mic to start"}
             </p>
           </div>
         </div>
