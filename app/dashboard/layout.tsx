@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
+
+const VoiceAgent = dynamic(() => import("@/components/voice-agent"), { ssr: false });
 
 const TABS = [
   { label: "News Feed", href: "/dashboard/news", icon: "📰" },
@@ -107,6 +110,7 @@ export default function DashboardLayout({
       </header>
 
       <main>{children}</main>
+      <VoiceAgent />
     </div>
   );
 }
