@@ -12,6 +12,15 @@ type TranscriptEntry = {
 };
 
 export default function VoiceAgent() {
+  const envAgentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+
+  // Don't render anything if no agent ID configured
+  if (!envAgentId) return null;
+
+  return <VoiceAgentInner />;
+}
+
+function VoiceAgentInner() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(false);

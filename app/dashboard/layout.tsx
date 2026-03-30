@@ -7,7 +7,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 
-const VoiceAgent = dynamic(() => import("@/components/voice-agent"), { ssr: false });
+const VoiceAgent = dynamic(() => import("@/components/voice-agent").catch(() => () => null), { ssr: false });
 
 const TABS = [
   { label: "News Feed", href: "/dashboard/news", icon: "📰" },
