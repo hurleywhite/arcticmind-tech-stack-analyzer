@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 const TABS = [
@@ -60,7 +61,14 @@ export default function DashboardLayout({
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 md:px-6">
           {/* Left: Logo + company badge */}
           <div className="flex items-center gap-3">
-            <Link href="/dashboard/news" className="text-lg font-bold">
+            <Link href="/dashboard/news" className="flex items-center gap-2 text-lg font-bold">
+              <Image
+                src="/logo.avif"
+                alt="ArcticPulse"
+                width={28}
+                height={28}
+                className="rounded-md"
+              />
               ArcticPulse
             </Link>
             {companyName && (
