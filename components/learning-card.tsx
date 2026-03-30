@@ -35,7 +35,7 @@ export default function LearningCard({
                 rel="noopener noreferrer"
                 className="hover:text-blue-400 transition-colors"
               >
-                {item.title} &nearr;
+                {item.title} ↗
               </a>
             ) : (
               item.title
