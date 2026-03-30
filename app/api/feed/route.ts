@@ -88,19 +88,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Historical feed queries
-    if (range) {
+    // Historical feed queries (week/month only — "today" falls through to live feed)
+    if (range && range !== "today") {
       const now = new Date();
       let since: Date;
-      if (range === "today") { since = new Date(now); since.setHours(0, 0, 0, 0); }
-      else if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
+      if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
       else if (range === "month") { since = new Date(now); since.setDate(since.getDate() - 30); since.setHours(0, 0, 0, 0); }
       else { return NextResponse.json({ error: "Invalid range" }, { status: 400 }); }
 
       const { data: feeds } = await supabase
         .from("news_feeds")
         .select("*")
-        .eq("user_id", profile.id)  // Use profile.id (auto UUID), not auth user id
+        .eq("user_id", profile.id)
         .gte("generated_at", since.toISOString())
         .order("generated_at", { ascending: false });
 
@@ -134,12 +133,14 @@ export async function GET(request: NextRequest) {
           generated_at: new Date().toISOString(),
         },
         range,
-        range_label: range === "today" ? "Today's AI Update" : range === "week" ? "This Week's AI Update" : "This Month's AI Update",
+        range_label: range === "week" ? "This Week's AI Update" : "This Month's AI Update",
         feed_count: (feeds || []).length,
         cached: true,
         status: "complete",
       });
     }
+
+    // "today" range behaves like "current" — shows latest cached feed or generates fresh
 
     // Adaptive cache: check if most recent feed is still fresh enough
     const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
