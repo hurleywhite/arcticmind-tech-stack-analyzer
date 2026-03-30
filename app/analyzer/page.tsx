@@ -123,7 +123,7 @@ export default function AnalyzerPage() {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="e.g. snowflake.com"
+              placeholder="e.g. snowflake.com or Pfizer"
               className="flex-1 rounded-lg border border-foreground/20 bg-background px-4 py-3 text-foreground placeholder:text-foreground/40 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               disabled={loading}
             />
