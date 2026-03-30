@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useConversation } from "@11labs/react";
+import { useConversation } from "@elevenlabs/react";
 import { voiceToolHandlers, clientToolDefinitions } from "@/lib/voice-tools";
 
 type TranscriptEntry = {
