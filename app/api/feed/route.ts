@@ -6,7 +6,7 @@ import { getCollectiveSignals, formatCollectiveContext } from "@/lib/collective-
 import { buildUserPreferences, formatPreferenceContext } from "@/lib/preference-engine";
 import { sendSlackFeedHighlights } from "@/lib/slack-notify";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /**
  * Adaptive cache TTL based on visit frequency.
