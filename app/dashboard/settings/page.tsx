@@ -62,6 +62,7 @@ export default function SettingsPage() {
   const [toolingFocus, setToolingFocus] = useState("");
   const [aiGoals, setAiGoals] = useState<string[]>([]);
   const [articleCount, setArticleCount] = useState(8);
+  const [hubSharingEnabled, setHubSharingEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -90,6 +91,7 @@ export default function SettingsPage() {
         setToolingFocus(data.tooling_focus || "");
         setAiGoals(data.ai_goals || []);
         setArticleCount(data.article_count || 8);
+        setHubSharingEnabled(data.hub_sharing_enabled || false);
       }
       setLoading(false);
     }
@@ -133,6 +135,7 @@ export default function SettingsPage() {
         tooling_focus: toolingFocus || null,
         ai_goals: aiGoals,
         article_count: articleCount,
+        hub_sharing_enabled: hubSharingEnabled,
       })
       .eq("id", user.id);
 
@@ -290,6 +293,30 @@ export default function SettingsPage() {
           </div>
           <p className="mt-1 text-xs text-foreground/40">
             5 = quick scan &middot; 8 = balanced (default) &middot; 15 = deep dive
+          </p>
+        </div>
+
+        {/* Team sharing toggle */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-foreground/70">
+            Tooling Hub Sharing
+          </label>
+          <button
+            type="button"
+            onClick={() => setHubSharingEnabled(!hubSharingEnabled)}
+            className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors w-full text-left ${
+              hubSharingEnabled
+                ? "border-emerald-500/30 bg-emerald-500/5 text-foreground/80"
+                : "border-foreground/15 text-foreground/50"
+            }`}
+          >
+            <span className={`flex h-5 w-9 items-center rounded-full transition-colors ${hubSharingEnabled ? "bg-emerald-500" : "bg-foreground/20"}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${hubSharingEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+            </span>
+            <span>Share my hub items with my team</span>
+          </button>
+          <p className="mt-1 text-xs text-foreground/40">
+            When enabled, items you mark as shared will be visible to teammates at your company.
           </p>
         </div>
       </section>

@@ -3,8 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { HubPrompt, HubTool, HubTask } from "@/lib/hub-types";
+import type { CatalogTool, CatalogPrompt, CatalogTask } from "@/lib/hub-catalog";
 
 type HubTab = "prompts" | "tools" | "tasks";
+
+interface Suggestions {
+  tools: CatalogTool[];
+  prompts: CatalogPrompt[];
+  tasks: CatalogTask[];
+}
 
 // ── Modal Component ──
 function Modal({
@@ -39,6 +46,9 @@ export default function HubPage() {
   const [tasks, setTasks] = useState<HubTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestions>({ tools: [], prompts: [], tasks: [] });
+  const [showDiscover, setShowDiscover] = useState(true);
+  const [addingItem, setAddingItem] = useState<string | null>(null);
 
   // Modal state
   const [showPromptModal, setShowPromptModal] = useState(false);
@@ -48,20 +58,48 @@ export default function HubPage() {
   const [editingTool, setEditingTool] = useState<HubTool | null>(null);
   const [editingTask, setEditingTask] = useState<HubTask | null>(null);
 
+  const [sharedPrompts, setSharedPrompts] = useState<HubPrompt[]>([]);
+  const [sharedTools, setSharedTools] = useState<HubTool[]>([]);
+  const [sharedTasks, setSharedTasks] = useState<HubTask[]>([]);
+  const [showTeamHub, setShowTeamHub] = useState(true);
+
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [pRes, tRes, tkRes] = await Promise.all([
+    const [pRes, tRes, tkRes, sRes, shRes] = await Promise.all([
       fetch("/api/hub/prompts"),
       fetch("/api/hub/tools"),
       fetch("/api/hub/tasks"),
+      fetch("/api/hub/suggestions"),
+      fetch("/api/hub/shared"),
     ]);
     if (pRes.ok) { const d = await pRes.json(); setPrompts(d.prompts || []); }
     if (tRes.ok) { const d = await tRes.json(); setTools(d.tools || []); }
     if (tkRes.ok) { const d = await tkRes.json(); setTasks(d.tasks || []); }
+    if (sRes.ok) { const d = await sRes.json(); setSuggestions(d); }
+    if (shRes.ok) { const d = await shRes.json(); setSharedPrompts(d.prompts || []); setSharedTools(d.tools || []); setSharedTasks(d.tasks || []); }
     setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  async function toggleShare(type: "prompts" | "tools" | "tasks", id: string, currentShared: boolean) {
+    const endpoint = `/api/hub/${type}`;
+    await fetch(endpoint, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, shared: !currentShared }),
+    });
+    loadData();
+  }
+
+  async function forkItem(type: "prompt" | "tool" | "task", id: string) {
+    const res = await fetch("/api/hub/fork", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, id }),
+    });
+    if (res.ok) loadData();
+  }
 
   async function deletePrompt(id: string) {
     if (!confirm("Delete this prompt?")) return;
@@ -171,6 +209,93 @@ export default function HubPage() {
         </div>
       )}
 
+      {/* ── DISCOVER SECTION ── */}
+      {!loading && (() => {
+        const currentSuggestions = activeTab === "prompts" ? suggestions.prompts
+          : activeTab === "tools" ? suggestions.tools
+          : suggestions.tasks;
+        // Filter out items already in user's hub
+        const existingNames = new Set(
+          activeTab === "prompts" ? prompts.map(p => p.title.toLowerCase())
+          : activeTab === "tools" ? tools.map(t => t.name.toLowerCase())
+          : tasks.map(t => t.title.toLowerCase())
+        );
+        const filtered = currentSuggestions.filter(s => {
+          const name = ("name" in s ? s.name : s.title).toLowerCase();
+          return !existingNames.has(name);
+        });
+        if (filtered.length === 0) return null;
+
+        return (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowDiscover(!showDiscover)}
+              className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              <span className="text-xs">{showDiscover ? "▾" : "▸"}</span>
+              Discover ({filtered.length} suggestions for you)
+            </button>
+            {showDiscover && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((item) => {
+                  const itemName = "name" in item ? item.name : item.title;
+                  const itemDesc = item.description;
+                  const isAdding = addingItem === itemName;
+                  return (
+                    <div
+                      key={itemName}
+                      className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 transition-all hover:border-emerald-500/25"
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-foreground/80">{itemName}</h4>
+                        {"url" in item && item.url && (
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-foreground/30 hover:text-emerald-400 text-xs flex-shrink-0">
+                            &nearr;
+                          </a>
+                        )}
+                      </div>
+                      <p className="mb-3 text-xs text-foreground/45 line-clamp-2">{itemDesc}</p>
+                      {"tags" in item && item.tags?.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-1">
+                          {item.tags.slice(0, 3).map((tag: string) => (
+                            <span key={tag} className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400/70">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                      {"linked_tool_names" in item && item.linked_tool_names?.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-1">
+                          {item.linked_tool_names.map((name: string) => (
+                            <span key={name} className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400/70">{name}</span>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={async () => {
+                          setAddingItem(itemName);
+                          const res = await fetch("/api/hub/suggestions/add", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ type: activeTab === "prompts" ? "prompt" : activeTab === "tools" ? "tool" : "task", item }),
+                          });
+                          if (res.ok) {
+                            loadData();
+                          }
+                          setTimeout(() => setAddingItem(null), 1500);
+                        }}
+                        disabled={isAdding}
+                        className="w-full rounded-lg bg-emerald-600/80 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+                      >
+                        {isAdding ? "✓ Added!" : "Add to my hub"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Loading */}
       {loading && (
         <div className="py-12 text-center text-foreground/40">Loading your hub...</div>
@@ -202,6 +327,13 @@ export default function HubPage() {
                     {prompt.status}
                   </span>
                   <button
+                    onClick={() => toggleShare("prompts", prompt.id, prompt.shared)}
+                    className={`text-xs transition-colors ${prompt.shared ? "text-emerald-400 hover:text-emerald-300" : "text-foreground/20 hover:text-emerald-400"}`}
+                    title={prompt.shared ? "Shared with team" : "Share with team"}
+                  >
+                    {prompt.shared ? "🔗" : "🔒"}
+                  </button>
+                  <button
                     onClick={() => deletePrompt(prompt.id)}
                     className="text-foreground/20 hover:text-red-400 transition-colors text-sm"
                     title="Delete"
@@ -210,6 +342,9 @@ export default function HubPage() {
                   </button>
                 </div>
               </div>
+              {prompt.shared && (
+                <span className="mb-2 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">Shared</span>
+              )}
               {prompt.description && (
                 <p className="mb-3 text-xs text-foreground/50 line-clamp-2">{prompt.description}</p>
               )}
@@ -264,6 +399,13 @@ export default function HubPage() {
                     </a>
                   )}
                   <button
+                    onClick={() => toggleShare("tools", tool.id, tool.shared)}
+                    className={`text-xs transition-colors ${tool.shared ? "text-emerald-400 hover:text-emerald-300" : "text-foreground/20 hover:text-emerald-400"}`}
+                    title={tool.shared ? "Shared with team" : "Share with team"}
+                  >
+                    {tool.shared ? "🔗" : "🔒"}
+                  </button>
+                  <button
                     onClick={() => deleteTool(tool.id)}
                     className="text-foreground/20 hover:text-red-400 transition-colors text-sm"
                     title="Delete"
@@ -313,13 +455,22 @@ export default function HubPage() {
             >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <h3 className="font-semibold text-foreground/90 text-sm">{task.title}</h3>
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="text-foreground/20 hover:text-red-400 transition-colors text-sm"
-                  title="Delete"
-                >
-                  &times;
-                </button>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => toggleShare("tasks", task.id, task.shared)}
+                    className={`text-xs transition-colors ${task.shared ? "text-emerald-400 hover:text-emerald-300" : "text-foreground/20 hover:text-emerald-400"}`}
+                    title={task.shared ? "Shared with team" : "Share with team"}
+                  >
+                    {task.shared ? "🔗" : "🔒"}
+                  </button>
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="text-foreground/20 hover:text-red-400 transition-colors text-sm"
+                    title="Delete"
+                  >
+                    &times;
+                  </button>
+                </div>
               </div>
               {task.description && (
                 <p className="mb-3 text-xs text-foreground/50">{task.description}</p>
@@ -358,6 +509,59 @@ export default function HubPage() {
           ))}
         </div>
       )}
+
+      {/* ── TEAM HUB (shared items from teammates) ── */}
+      {!loading && (() => {
+        const currentShared = activeTab === "prompts" ? sharedPrompts
+          : activeTab === "tools" ? sharedTools
+          : sharedTasks;
+        if (currentShared.length === 0) return null;
+
+        return (
+          <div className="mt-8 border-t border-foreground/10 pt-6">
+            <button
+              onClick={() => setShowTeamHub(!showTeamHub)}
+              className="mb-3 flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              <span className="text-xs">{showTeamHub ? "▾" : "▸"}</span>
+              Team Hub ({currentShared.length} shared by teammates)
+            </button>
+            {showTeamHub && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {currentShared.map((item) => {
+                  const itemName = "name" in item ? item.name : item.title;
+                  const itemDesc = item.description;
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-4"
+                    >
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-foreground/80">{itemName}</h4>
+                      </div>
+                      <p className="mb-1 text-[10px] text-blue-400/60">
+                        Shared by {item.owner_name || "teammate"}
+                      </p>
+                      {itemDesc && (
+                        <p className="mb-3 text-xs text-foreground/45 line-clamp-2">{itemDesc}</p>
+                      )}
+                      <button
+                        onClick={() => forkItem(
+                          activeTab === "prompts" ? "prompt" : activeTab === "tools" ? "tool" : "task",
+                          item.id
+                        )}
+                        className="w-full rounded-lg bg-blue-600/80 py-1.5 text-xs font-medium text-white hover:bg-blue-600 transition-colors"
+                      >
+                        Fork to my hub
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── PROMPT MODAL ── */}
       <Modal

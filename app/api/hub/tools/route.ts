@@ -58,20 +58,23 @@ export async function PUT(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { id, name, description, url, icon_url, notes } = body;
+  const { id, name, description, url, icon_url, notes, shared } = body;
 
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
+  const updateData: Record<string, unknown> = {
+    name,
+    description: description || null,
+    url: url || null,
+    icon_url: icon_url || null,
+    notes: notes || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (shared !== undefined) updateData.shared = shared;
+
   const { data, error } = await supabase
     .from("hub_tools")
-    .update({
-      name,
-      description: description || null,
-      url: url || null,
-      icon_url: icon_url || null,
-      notes: notes || null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq("id", id)
     .eq("user_id", user.id)
     .select()
