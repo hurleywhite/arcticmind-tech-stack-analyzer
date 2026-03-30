@@ -43,7 +43,7 @@ export default function LandingPage() {
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-blue-400">
             Your company. Your background. Your feed.
           </p>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+          <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl whitespace-nowrap">
             One place to stay sharp on <span className="text-blue-500">AI</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-foreground/50 md:text-xl leading-relaxed">
