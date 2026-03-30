@@ -32,7 +32,7 @@ export default function ArticleCard({
           <span className="text-xs text-foreground/60">{item.date}</span>
         )}
         {isRead && (
-          <span className="text-[10px] text-foreground/40">&check; read</span>
+          <span className="text-[10px] text-foreground/40">✓ read</span>
         )}
       </div>
 
@@ -70,7 +70,7 @@ export default function ArticleCard({
             rel="noopener noreferrer"
             className="text-xs text-foreground/60 hover:text-foreground/80 transition-colors"
           >
-            {item.source} &nearr;
+            {item.source} ↗
           </a>
         )}
         {item.url && (
