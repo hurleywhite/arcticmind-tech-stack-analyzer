@@ -4,6 +4,7 @@ import { generateFeed } from "@/lib/feed-generator";
 import { adaptCompanyData } from "@/lib/db-adapters";
 import { getCollectiveSignals, formatCollectiveContext } from "@/lib/collective-intel";
 import { buildUserPreferences, formatPreferenceContext } from "@/lib/preference-engine";
+import { sendSlackFeedHighlights } from "@/lib/slack-notify";
 
 export const maxDuration = 60;
 
@@ -183,10 +184,11 @@ export async function GET(request: NextRequest) {
       ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
       : "technology";
 
-    const [userPreferences, collectiveSignals, hubToolsRes] = await Promise.all([
+    const [userPreferences, collectiveSignals, hubToolsRes, customSourcesRes] = await Promise.all([
       buildUserPreferences(supabase, user.id),
       getCollectiveSignals(supabase, user.id, profile.ai_interests || [], industry),
       supabase.from("hub_tools").select("name").eq("user_id", user.id),
+      supabase.from("custom_sources").select("name, url").eq("user_id", user.id).eq("is_active", true),
     ]);
 
     const preferenceContext = formatPreferenceContext(userPreferences);
@@ -198,9 +200,15 @@ export async function GET(request: NextRequest) {
       ? `\n\nUSER'S ACTIVE TOOLS (from their Tooling Hub — they actively use these, prioritize updates about them):\n${hubToolNames.join(", ")}`
       : "";
 
+    // Build custom sources context — user's preferred blogs/sites
+    const customSources = (customSourcesRes.data || []) as { name: string; url: string }[];
+    const customSourcesContext = customSources.length > 0
+      ? `\n\nUSER'S CUSTOM SOURCES (check these sites for relevant articles):\n${customSources.map(s => `${s.name}: ${s.url}`).join("\n")}`
+      : "";
+
     console.log("[feed-route] Company data found:", !!companyData, "domain:", profile.company_domain);
     console.log("[feed-route] Preferences:", userPreferences.total_feedback, "signals |", userPreferences.preferred_sources.length, "pref sources |", collectiveSignals.totalSignalUsers, "community users");
-    console.log("[feed-route] Hub tools:", hubToolNames.length, "active tools");
+    console.log("[feed-route] Hub tools:", hubToolNames.length, "| Custom sources:", customSources.length);
     console.log("[feed-route] Adaptive TTL:", ttlHours, "hours for this user");
 
     // Check shared company feed cache (within last 4 hours)
@@ -225,7 +233,7 @@ export async function GET(request: NextRequest) {
     }
 
     const articleCount = profile.article_count || 8;
-    const feed = await generateFeed(profile, companyData, companyFeedCache, preferenceContext + hubToolsContext, collectiveContext, articleCount);
+    const feed = await generateFeed(profile, companyData, companyFeedCache, preferenceContext + hubToolsContext + customSourcesContext, collectiveContext, articleCount);
 
     // Cache shared company feed if we generated it fresh
     if (!companyFeedCache && companyData && profile.company_domain) {
@@ -247,6 +255,15 @@ export async function GET(request: NextRequest) {
       generated_at: feed.generated_at,
       expires_at: expiresAt,
     });
+
+    // Send Slack notification (fire-and-forget)
+    if (profile.slack_notify_enabled && profile.slack_webhook_url) {
+      sendSlackFeedHighlights(
+        profile.slack_webhook_url,
+        feed,
+        profile.company_name || "Your Company"
+      ).catch((e) => console.error("Slack notify failed:", e));
+    }
 
     return NextResponse.json({
       feed,
@@ -310,10 +327,11 @@ export async function POST(request: NextRequest) {
         ? companyData.summary.match(/(?:is a|is an)\s+([^.]+?)\s+company/i)?.[1] || "technology"
         : "technology";
 
-      const [refreshPrefs, refreshCollective, refreshHubTools] = await Promise.all([
+      const [refreshPrefs, refreshCollective, refreshHubTools, refreshCustomSources] = await Promise.all([
         buildUserPreferences(supabase, user.id),
         getCollectiveSignals(supabase, user.id, profile.ai_interests || [], refreshIndustry),
         supabase.from("hub_tools").select("name").eq("user_id", user.id),
+        supabase.from("custom_sources").select("name, url").eq("user_id", user.id).eq("is_active", true),
       ]);
 
       const refreshPrefContext = formatPreferenceContext(refreshPrefs);
@@ -322,10 +340,14 @@ export async function POST(request: NextRequest) {
       const refreshHubToolsCtx = refreshHubToolNames.length > 0
         ? `\n\nUSER'S ACTIVE TOOLS (from their Tooling Hub):\n${refreshHubToolNames.join(", ")}`
         : "";
+      const refreshCustomSrc = (refreshCustomSources.data || []) as { name: string; url: string }[];
+      const refreshCustomCtx = refreshCustomSrc.length > 0
+        ? `\n\nUSER'S CUSTOM SOURCES:\n${refreshCustomSrc.map(s => `${s.name}: ${s.url}`).join("\n")}`
+        : "";
       const refreshArticleCount = profile.article_count || 8;
       const refreshWindowLabel = getWindowLabel();
 
-      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext + refreshHubToolsCtx, refreshCollectiveContext, refreshArticleCount);
+      const feed = await generateFeed(profile, companyData, companyFeedCache, refreshPrefContext + refreshHubToolsCtx + refreshCustomCtx, refreshCollectiveContext, refreshArticleCount);
 
       const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
       const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();

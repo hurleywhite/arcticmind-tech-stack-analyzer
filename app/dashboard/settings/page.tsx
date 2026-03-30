@@ -63,6 +63,11 @@ export default function SettingsPage() {
   const [aiGoals, setAiGoals] = useState<string[]>([]);
   const [articleCount, setArticleCount] = useState(8);
   const [hubSharingEnabled, setHubSharingEnabled] = useState(false);
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
+  const [slackNotifyEnabled, setSlackNotifyEnabled] = useState(false);
+  const [customSources, setCustomSources] = useState<{ id: string; name: string; url: string; is_active: boolean }[]>([]);
+  const [newSourceName, setNewSourceName] = useState("");
+  const [newSourceUrl, setNewSourceUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -92,7 +97,17 @@ export default function SettingsPage() {
         setAiGoals(data.ai_goals || []);
         setArticleCount(data.article_count || 8);
         setHubSharingEnabled(data.hub_sharing_enabled || false);
+        setSlackWebhookUrl(data.slack_webhook_url || "");
+        setSlackNotifyEnabled(data.slack_notify_enabled || false);
       }
+
+      // Load custom sources
+      const sourcesRes = await fetch("/api/custom-sources");
+      if (sourcesRes.ok) {
+        const sourcesData = await sourcesRes.json();
+        setCustomSources(sourcesData.sources || []);
+      }
+
       setLoading(false);
     }
     loadProfile();
@@ -136,6 +151,8 @@ export default function SettingsPage() {
         ai_goals: aiGoals,
         article_count: articleCount,
         hub_sharing_enabled: hubSharingEnabled,
+        slack_webhook_url: slackWebhookUrl || null,
+        slack_notify_enabled: slackNotifyEnabled,
       })
       .eq("id", user.id);
 
@@ -399,6 +416,123 @@ export default function SettingsPage() {
             {learningFocus.length}/500
           </p>
         </div>
+      </section>
+
+      {/* --- Custom Sources --- */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/40">Custom Sources</h3>
+        <p className="text-xs text-foreground/40">
+          Add blogs, newsletters, or sites you want included in your feed. Claude will check these when generating articles.
+        </p>
+
+        {customSources.length > 0 && (
+          <div className="space-y-2">
+            {customSources.map((source) => (
+              <div key={source.id} className="flex items-center gap-2 rounded-lg border border-foreground/10 px-3 py-2">
+                <span className={`flex-1 text-sm ${source.is_active ? "text-foreground/80" : "text-foreground/40 line-through"}`}>
+                  {source.name}
+                </span>
+                <span className="text-xs text-foreground/30 truncate max-w-[200px]">{source.url}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch(`/api/custom-sources`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: source.id, is_active: !source.is_active }),
+                    });
+                    setCustomSources((prev) => prev.map((s) => s.id === source.id ? { ...s, is_active: !s.is_active } : s));
+                  }}
+                  className={`text-xs px-2 py-0.5 rounded ${source.is_active ? "text-emerald-500" : "text-foreground/40"}`}
+                >
+                  {source.is_active ? "On" : "Off"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch(`/api/custom-sources?id=${source.id}`, { method: "DELETE" });
+                    setCustomSources((prev) => prev.filter((s) => s.id !== source.id));
+                  }}
+                  className="text-xs text-red-400/60 hover:text-red-400"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newSourceName}
+            onChange={(e) => setNewSourceName(e.target.value)}
+            placeholder="Source name"
+            className="w-1/3 rounded-lg border border-foreground/20 bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-blue-500 focus:outline-none"
+          />
+          <input
+            type="url"
+            value={newSourceUrl}
+            onChange={(e) => setNewSourceUrl(e.target.value)}
+            placeholder="https://example.com/blog"
+            className="flex-1 rounded-lg border border-foreground/20 bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-blue-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              if (!newSourceName || !newSourceUrl) return;
+              const res = await fetch("/api/custom-sources", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newSourceName, url: newSourceUrl }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setCustomSources((prev) => [data.source, ...prev]);
+                setNewSourceName("");
+                setNewSourceUrl("");
+              }
+            }}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Add
+          </button>
+        </div>
+      </section>
+
+      {/* --- Slack Integration --- */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/40">Slack Integration</h3>
+        <p className="text-xs text-foreground/40">
+          Post feed highlights to a Slack channel when your feed refreshes. Create an incoming webhook in your Slack workspace settings.
+        </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSlackNotifyEnabled(!slackNotifyEnabled)}
+            className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm transition-colors ${
+              slackNotifyEnabled
+                ? "border-emerald-500/30 bg-emerald-500/5 text-foreground/80"
+                : "border-foreground/15 text-foreground/50"
+            }`}
+          >
+            <span className={`flex h-5 w-9 items-center rounded-full transition-colors ${slackNotifyEnabled ? "bg-emerald-500" : "bg-foreground/20"}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${slackNotifyEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+            </span>
+            <span>Post feed highlights to Slack</span>
+          </button>
+        </div>
+
+        {slackNotifyEnabled && (
+          <input
+            type="url"
+            value={slackWebhookUrl}
+            onChange={(e) => setSlackWebhookUrl(e.target.value)}
+            placeholder="https://hooks.slack.com/services/T.../B.../..."
+            className="w-full rounded-lg border border-foreground/20 bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+        )}
       </section>
 
       {/* --- Save --- */}

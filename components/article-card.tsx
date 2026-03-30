@@ -9,12 +9,16 @@ export default function ArticleCard({
   onFeedback,
   isRead,
   onRead,
+  isBookmarked,
+  onBookmark,
 }: {
   item: FeedItem;
   feedback: string | null;
   onFeedback: (url: string, title: string, type: "up" | "down", source?: string, category?: string) => void;
   isRead?: boolean;
   onRead?: (url: string) => void;
+  isBookmarked?: boolean;
+  onBookmark?: (item: FeedItem) => void;
 }) {
   return (
     <article className={`group rounded-xl border p-5 transition-all hover:border-foreground/20 hover:bg-foreground/[0.04] ${
@@ -32,7 +36,7 @@ export default function ArticleCard({
           <span className="text-xs text-foreground/60">{item.date}</span>
         )}
         {isRead && (
-          <span className="text-[10px] text-foreground/40">✓ read</span>
+          <span className="text-[10px] text-foreground/40">{"\u2713"} read</span>
         )}
       </div>
 
@@ -75,6 +79,19 @@ export default function ArticleCard({
         )}
         {item.url && (
           <div className="flex items-center gap-1">
+            {onBookmark && (
+              <button
+                onClick={() => onBookmark(item)}
+                className={`rounded-md px-2 py-1 text-sm transition-colors ${
+                  isBookmarked
+                    ? "text-amber-400"
+                    : "text-foreground/25 hover:text-amber-400/70"
+                }`}
+                title={isBookmarked ? "Remove bookmark" : "Save for later"}
+              >
+                {isBookmarked ? "\u2605" : "\u2606"}
+              </button>
+            )}
             <ThumbButton
               type="up"
               active={feedback === "up"}

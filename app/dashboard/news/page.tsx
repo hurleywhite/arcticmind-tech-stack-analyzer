@@ -28,6 +28,7 @@ export default function NewsPage() {
   const [activeRange, setActiveRange] = useState<FeedRange>("current");
   const [feedbackMap, setFeedbackMap] = useState<Record<string, string>>({});
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
+  const [bookmarkedUrls, setBookmarkedUrls] = useState<Set<string>>(new Set());
 
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -56,6 +57,58 @@ export default function NewsPage() {
       try { localStorage.setItem("arcticpulse_read", JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });
+  }
+
+  // Load bookmarks
+  useEffect(() => {
+    fetch("/api/bookmarks")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.bookmarks) {
+          setBookmarkedUrls(new Set(data.bookmarks.map((b: { article_url: string }) => b.article_url)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleBookmark(item: FeedItem) {
+    if (!item.url) return;
+    const isCurrentlyBookmarked = bookmarkedUrls.has(item.url);
+
+    // Optimistic update
+    setBookmarkedUrls((prev) => {
+      const next = new Set(prev);
+      if (isCurrentlyBookmarked) next.delete(item.url!);
+      else next.add(item.url!);
+      return next;
+    });
+
+    try {
+      if (isCurrentlyBookmarked) {
+        await fetch(`/api/bookmarks?url=${encodeURIComponent(item.url)}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            article_url: item.url,
+            article_title: item.title,
+            article_summary: item.summary,
+            article_source: item.source,
+            article_category: item.category,
+            article_date: item.date,
+          }),
+        });
+      }
+    } catch {
+      // Revert on error
+      setBookmarkedUrls((prev) => {
+        const next = new Set(prev);
+        if (isCurrentlyBookmarked) next.add(item.url!);
+        else next.delete(item.url!);
+        return next;
+      });
+    }
   }
 
   useEffect(() => {
@@ -442,6 +495,8 @@ export default function NewsPage() {
                   onFeedback={handleFeedback}
                   isRead={item.url ? readArticles.has(item.url) : false}
                   onRead={markAsRead}
+                  isBookmarked={item.url ? bookmarkedUrls.has(item.url) : false}
+                  onBookmark={toggleBookmark}
                 />
               ))}
             </FeedSection>
@@ -458,6 +513,8 @@ export default function NewsPage() {
                   onFeedback={handleFeedback}
                   isRead={item.url ? readArticles.has(item.url) : false}
                   onRead={markAsRead}
+                  isBookmarked={item.url ? bookmarkedUrls.has(item.url) : false}
+                  onBookmark={toggleBookmark}
                 />
               ))}
             </FeedSection>
