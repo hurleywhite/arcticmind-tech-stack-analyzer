@@ -75,10 +75,11 @@ export default function LandingPage() {
           <h2 className="mb-4 text-center text-2xl font-bold md:text-3xl">
             Four functions, one workspace
           </h2>
-          <p className="mx-auto mb-14 max-w-xl text-center text-foreground/45">
-            Each one learns from the others. Upvote a news article — your
-            tooling suggestions sharpen. Add a tool — your feed adapts.
-          </p>
+          <div className="mx-auto mb-14 max-w-xl text-center text-foreground/45">
+            <p>Each one learns from the others:</p>
+            <p className="mt-1">Upvote a news article — your tooling suggestions sharpen.</p>
+            <p>Add a tool — your feed adapts.</p>
+          </div>
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.03] p-7">
               <div className="mb-3 text-2xl">📰</div>
