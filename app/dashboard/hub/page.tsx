@@ -247,10 +247,15 @@ export default function HubPage() {
                       className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4 transition-all hover:border-emerald-500/25"
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
-                        <h4 className="text-sm font-semibold text-foreground/80">{itemName}</h4>
+                        <div className="flex items-center gap-2">
+                          {"icon_url" in item && item.icon_url && (
+                            <img src={item.icon_url} alt="" className="h-5 w-5 rounded flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          )}
+                          <h4 className="text-sm font-semibold text-foreground/80">{itemName}</h4>
+                        </div>
                         {"url" in item && item.url && (
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-foreground/30 hover:text-emerald-400 text-xs flex-shrink-0">
-                            &nearr;
+                            ↗
                           </a>
                         )}
                       </div>
@@ -395,7 +400,7 @@ export default function HubPage() {
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {tool.url && (
                     <a href={tool.url} target="_blank" rel="noopener noreferrer" className="text-foreground/30 hover:text-blue-400 text-xs">
-                      &nearr;
+                      ↗
                     </a>
                   )}
                   <button
