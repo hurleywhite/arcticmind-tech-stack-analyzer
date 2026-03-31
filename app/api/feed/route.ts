@@ -158,10 +158,17 @@ export async function GET(request: NextRequest) {
       const feedData = cachedFeed.feed_data || cachedFeed.articles;
       const ageMs = Date.now() - new Date(cachedFeed.generated_at).getTime();
       const ttlMs = ttlHours * 60 * 60 * 1000;
-      const staleThresholdMs = 2 * 60 * 60 * 1000; // Show "stale" indicator after 2h
+      const staleThresholdMs = 2 * 60 * 60 * 1000;
 
-      if (ageMs < ttlMs) {
-        // Cache is still fresh — serve it
+      // Check if the cached feed actually has articles
+      const fd = feedData as Record<string, unknown> | null;
+      const hasArticles = fd && (
+        ((fd.tool_updates as unknown[]) || []).length > 0 ||
+        ((fd.ai_trends as unknown[]) || []).length > 0
+      );
+
+      if (ageMs < ttlMs && hasArticles) {
+        // Cache is fresh AND has articles — serve it
         return NextResponse.json({
           feed: feedData,
           cached: true,
@@ -172,7 +179,8 @@ export async function GET(request: NextRequest) {
           cache_ttl_hours: ttlHours,
         });
       }
-      // Cache expired — fall through to regeneration
+      // Cache expired OR empty — fall through to regeneration
+      console.log("[feed-route] Cache miss: age=", Math.round(ageMs / 60000), "min, ttl=", ttlHours, "h, hasArticles=", hasArticles);
     }
 
     // No cache — generate feed
