@@ -88,12 +88,79 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Historical feed queries — aggregate from stored feeds
-    if (range) {
+    // "Today" — if no feed exists from today, generate one fresh (don't just show stale data)
+    if (range === "today") {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const { data: todayFeeds } = await supabase
+        .from("news_feeds")
+        .select("*")
+        .eq("user_id", profile.id)
+        .gte("generated_at", todayStart.toISOString())
+        .order("generated_at", { ascending: false });
+
+      // Check if any today feed has actual articles
+      let hasTodayArticles = false;
+      for (const feed of todayFeeds || []) {
+        const fd = (feed.feed_data || feed.articles) as Record<string, unknown>;
+        if (!fd) continue;
+        if (((fd.tool_updates as unknown[]) || []).length > 0 || ((fd.ai_trends as unknown[]) || []).length > 0) {
+          hasTodayArticles = true;
+          break;
+        }
+      }
+
+      if (!hasTodayArticles) {
+        // No feed with articles today — generate fresh, don't fall through to stale cache
+        // This reuses the same generation logic as the "current" path below
+        // but we skip past the range handling entirely
+        range = null as unknown as string; // clear range so it falls into the live generation path
+      } else {
+        // Aggregate today's feeds
+        const seenUrls = new Set<string>();
+        const allToolUpdates: Record<string, unknown>[] = [];
+        const allAiTrends: Record<string, unknown>[] = [];
+        const allLearning: Record<string, unknown>[] = [];
+        let latestCompanyNews = null;
+
+        for (const feed of todayFeeds || []) {
+          const fd = (feed.feed_data || feed.articles) as Record<string, unknown>;
+          if (!fd) continue;
+          if (fd.company_news && !latestCompanyNews) latestCompanyNews = fd.company_news;
+          for (const item of (fd.tool_updates as Record<string, string>[]) || []) {
+            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allToolUpdates.push(item); }
+          }
+          for (const item of (fd.ai_trends as Record<string, string>[]) || []) {
+            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allAiTrends.push(item); }
+          }
+          for (const item of (fd.learning_skills as Record<string, string>[]) || []) {
+            if (!seenUrls.has(item.title || "")) { seenUrls.add(item.title || ""); allLearning.push(item); }
+          }
+        }
+
+        return NextResponse.json({
+          feed: {
+            company_news: latestCompanyNews,
+            tool_updates: allToolUpdates,
+            ai_trends: allAiTrends,
+            learning_skills: allLearning.slice(0, 5),
+            generated_at: new Date().toISOString(),
+          },
+          range: "today",
+          range_label: "Today's AI Update",
+          feed_count: (todayFeeds || []).length,
+          cached: true,
+          status: "complete",
+        });
+      }
+    }
+
+    // Historical feed queries (week/month) — aggregate from stored feeds
+    if (range && range !== "today") {
       const now = new Date();
       let since: Date;
-      if (range === "today") { since = new Date(now); since.setHours(0, 0, 0, 0); }
-      else if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
+      if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
       else if (range === "month") { since = new Date(now); since.setDate(since.getDate() - 30); since.setHours(0, 0, 0, 0); }
       else { return NextResponse.json({ error: "Invalid range" }, { status: 400 }); }
 
@@ -125,41 +192,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const hasArticles = allToolUpdates.length > 0 || allAiTrends.length > 0;
-
-      // If no articles found for this range, fall back to most recent feed with articles
-      if (!hasArticles) {
-        const { data: fallbackFeeds } = await supabase
-          .from("news_feeds")
-          .select("*")
-          .eq("user_id", profile.id)
-          .order("generated_at", { ascending: false })
-          .limit(5);
-
-        for (const feed of fallbackFeeds || []) {
-          const fd = (feed.feed_data || feed.articles) as Record<string, unknown>;
-          if (!fd) continue;
-          if (fd.company_news && !latestCompanyNews) latestCompanyNews = fd.company_news;
-          for (const item of (fd.tool_updates as Record<string, string>[]) || []) {
-            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allToolUpdates.push(item); }
-          }
-          for (const item of (fd.ai_trends as Record<string, string>[]) || []) {
-            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allAiTrends.push(item); }
-          }
-          for (const item of (fd.learning_skills as Record<string, string>[]) || []) {
-            if (!seenUrls.has(item.title || "")) { seenUrls.add(item.title || ""); allLearning.push(item); }
-          }
-          // Stop once we have articles
-          if (allToolUpdates.length > 0 || allAiTrends.length > 0) break;
-        }
-      }
-
-      const rangeLabels: Record<string, string> = {
-        today: "Today's AI Update",
-        week: "This Week's AI Update",
-        month: "This Month's AI Update",
-      };
-
       return NextResponse.json({
         feed: {
           company_news: latestCompanyNews,
@@ -169,10 +201,9 @@ export async function GET(request: NextRequest) {
           generated_at: new Date().toISOString(),
         },
         range,
-        range_label: rangeLabels[range] || range,
+        range_label: range === "week" ? "This Week's AI Update" : "This Month's AI Update",
         feed_count: (feeds || []).length,
         cached: true,
-        fallback: !hasArticles,
         status: "complete",
       });
     }
