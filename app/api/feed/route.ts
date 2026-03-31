@@ -88,11 +88,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Historical feed queries (week/month only — "today" falls through to live feed)
-    if (range && range !== "today") {
+    // Historical feed queries — aggregate from stored feeds
+    if (range) {
       const now = new Date();
       let since: Date;
-      if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
+      if (range === "today") { since = new Date(now); since.setHours(0, 0, 0, 0); }
+      else if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }
       else if (range === "month") { since = new Date(now); since.setDate(since.getDate() - 30); since.setHours(0, 0, 0, 0); }
       else { return NextResponse.json({ error: "Invalid range" }, { status: 400 }); }
 
@@ -124,6 +125,41 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      const hasArticles = allToolUpdates.length > 0 || allAiTrends.length > 0;
+
+      // If no articles found for this range, fall back to most recent feed with articles
+      if (!hasArticles) {
+        const { data: fallbackFeeds } = await supabase
+          .from("news_feeds")
+          .select("*")
+          .eq("user_id", profile.id)
+          .order("generated_at", { ascending: false })
+          .limit(5);
+
+        for (const feed of fallbackFeeds || []) {
+          const fd = (feed.feed_data || feed.articles) as Record<string, unknown>;
+          if (!fd) continue;
+          if (fd.company_news && !latestCompanyNews) latestCompanyNews = fd.company_news;
+          for (const item of (fd.tool_updates as Record<string, string>[]) || []) {
+            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allToolUpdates.push(item); }
+          }
+          for (const item of (fd.ai_trends as Record<string, string>[]) || []) {
+            if (item.url && !seenUrls.has(item.url)) { seenUrls.add(item.url); allAiTrends.push(item); }
+          }
+          for (const item of (fd.learning_skills as Record<string, string>[]) || []) {
+            if (!seenUrls.has(item.title || "")) { seenUrls.add(item.title || ""); allLearning.push(item); }
+          }
+          // Stop once we have articles
+          if (allToolUpdates.length > 0 || allAiTrends.length > 0) break;
+        }
+      }
+
+      const rangeLabels: Record<string, string> = {
+        today: "Today's AI Update",
+        week: "This Week's AI Update",
+        month: "This Month's AI Update",
+      };
+
       return NextResponse.json({
         feed: {
           company_news: latestCompanyNews,
@@ -133,14 +169,15 @@ export async function GET(request: NextRequest) {
           generated_at: new Date().toISOString(),
         },
         range,
-        range_label: range === "week" ? "This Week's AI Update" : "This Month's AI Update",
+        range_label: rangeLabels[range] || range,
         feed_count: (feeds || []).length,
         cached: true,
+        fallback: !hasArticles,
         status: "complete",
       });
     }
 
-    // "today" range behaves like "current" — shows latest cached feed or generates fresh
+    // "current" (Latest tab) — shows latest cached feed or generates fresh
 
     // Adaptive cache: check if most recent feed is still fresh enough
     const ttlHours = await getAdaptiveTtlHours(supabase, profile.id);
