@@ -343,7 +343,7 @@ ${preferenceContext || ""}
 
 Every URL MUST be a real URL you found in search results. NEVER fabricate or guess URLs.
 
-Return ${count} articles as JSON array ONLY: [{"title":"...","summary":"one sentence on what changed + one on why it matters for ${industry}","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
+Return ${count} articles as JSON array ONLY: [{"title":"...","summary":"3-5 sentences: (1) What changed or was released. (2) Why this matters beyond the headline — what does it enable or break? (3) How this affects teams using this tool in ${industry}.","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"tool_update","relevance_note":"..."}]`,
         },
       ],
     });
@@ -403,7 +403,7 @@ SEARCH FOCUS: ${searchFocus}
 ${seniorityFraming} ${depthFraming}
 
 Every URL MUST be real from search results. Return ONLY JSON array:
-[{"title":"...","summary":"2 sentences: what happened + why it matters","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"...","relevance_note":"1 sentence why selected"}]`,
+[{"title":"...","summary":"3-5 sentences: (1) What happened — the core news. (2) The deeper implication that ISN'T obvious from the headline — what does this actually change? (3) What this means practically for someone in their role at their company. Don't just summarize the headline — extract the insight, the 'so what', the part that makes this worth reading.","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"...","relevance_note":"1 sentence on why this was selected for them specifically"}]`,
           },
         ],
       });
@@ -459,7 +459,7 @@ async function fetchIndustryAiNews(
 Search for: AI adoption case studies, enterprise reports, regulation news, workforce impact, and ${industry}-specific AI developments.
 
 Every URL MUST be real. Return ONLY JSON array:
-[{"title":"...","summary":"2 sentences: what + why it matters","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"...","relevance_note":"why selected"}]`,
+[{"title":"...","summary":"3-5 sentences: (1) What happened. (2) The deeper implication — what does this actually change for businesses? (3) What this means for someone in their role. Extract the insight, not just the headline.","url":"https://...","source":"...","date":"YYYY-MM-DD","category":"...","relevance_note":"why selected for them"}]`,
         },
       ],
     });
