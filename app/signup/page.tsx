@@ -7,14 +7,19 @@ import { createClient } from "@/lib/supabase/client";
 import { TechStack } from "@/lib/types";
 
 const AI_INTERESTS = [
-  "AI Coding Tools",
-  "AI Agents & Automation",
-  "Data & Analytics",
-  "AI in {industry}",
-  "LLMs & Prompting",
-  "AI Governance & Ethics",
-  "Computer Vision",
-  "AI for Business/GTM",
+  "AI Coding & Dev Tools",
+  "AI Agents & Workflows",
+  "LLMs & Models",
+  "AI for Sales & Marketing",
+  "AI for Data & Analytics",
+];
+
+const AI_GOALS = [
+  "Evaluate & compare AI tools",
+  "Automate internal workflows",
+  "Build AI-powered products",
+  "Train my team on AI",
+  "Stay current on AI trends",
 ];
 
 const SENIORITY_OPTIONS = [
@@ -69,8 +74,9 @@ export default function SignupPage() {
   const [companyLoading, setCompanyLoading] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
 
-  // Step 3: Interests
+  // Step 3: Interests & Goals
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [role, setRole] = useState("");
   const [seniority, setSeniority] = useState("");
   const [learningFocus, setLearningFocus] = useState("");
@@ -277,6 +283,14 @@ export default function SignupPage() {
     );
   }
 
+  function toggleGoal(goal: string) {
+    setSelectedGoals((prev) =>
+      prev.includes(goal)
+        ? prev.filter((g) => g !== goal)
+        : [...prev, goal]
+    );
+  }
+
   async function completeOnboarding() {
     setSaving(true);
     const supabase = createClient();
@@ -289,14 +303,11 @@ export default function SignupPage() {
       return;
     }
 
-    const resolvedInterests = selectedInterests.map((i) =>
-      i === "AI in {industry}" ? `AI in ${industry || "Your Industry"}` : i
-    );
-
     await supabase
       .from("user_profiles")
       .update({
-        ai_interests: resolvedInterests,
+        ai_interests: selectedInterests,
+        ai_goals: selectedGoals,
         role: role || null,
         seniority: seniority || null,
         custom_learning_focus: learningFocus || null,
@@ -573,10 +584,7 @@ export default function SignupPage() {
 
             <div className="grid grid-cols-2 gap-2">
               {AI_INTERESTS.map((interest) => {
-                const label =
-                  interest === "AI in {industry}"
-                    ? `AI in ${industry || "Your Industry"}`
-                    : interest;
+                const label = interest;
                 const isSelected = selectedInterests.includes(interest);
                 return (
                   <button
@@ -593,6 +601,31 @@ export default function SignupPage() {
                   </button>
                 );
               })}
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground/70">
+                What are you trying to do with AI?
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {AI_GOALS.map((goal) => {
+                  const isSelected = selectedGoals.includes(goal);
+                  return (
+                    <button
+                      key={goal}
+                      type="button"
+                      onClick={() => toggleGoal(goal)}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-foreground/15 text-foreground/70 hover:border-foreground/30"
+                      }`}
+                    >
+                      {goal}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div>

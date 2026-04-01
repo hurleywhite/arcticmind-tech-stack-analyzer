@@ -99,8 +99,8 @@ Walk through these questions naturally — don't make it feel like a form:
 2. What's your role? (e.g., Product Manager, Data Engineer, CEO)
 3. What's your seniority level? Options: Executive, Founder, Director, Manager, Team Lead, Specialist
 4. How experienced are you with AI? Options: beginner, intermediate, advanced, expert
-5. What AI topics interest you most? Suggest: AI Coding Tools, AI Agents & Automation, Data & Analytics, LLMs & Prompting, AI Governance & Ethics, Computer Vision, AI for Business/GTM
-6. What are you trying to do with AI? Suggest: Automate repetitive work, Build AI-powered products, Improve team productivity, Stay ahead of AI trends, Evaluate AI vendors/tools, Upskill my team on AI, AI governance & compliance, Data pipeline automation
+5. What AI topics interest you most? Suggest: AI Coding & Dev Tools, AI Agents & Workflows, LLMs & Models, AI for Sales & Marketing, AI for Data & Analytics
+6. What are you trying to do with AI? Suggest: Evaluate & compare AI tools, Automate internal workflows, Build AI-powered products, Train my team on AI, Stay current on AI trends
 7. Do you prefer high-level strategy content, a balanced mix, or deep technical content?
 
 After each answer, call the appropriate tool to save it. Confirm back what you heard before saving. When all fields are covered, call completeOnboarding().

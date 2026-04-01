@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
-    const range = searchParams.get("range");
+    let range = searchParams.get("range");
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
     }
 
     // "Today" — if no feed exists from today, generate one fresh (don't just show stale data)
+    let generateFresh = false;
     if (range === "today") {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
@@ -113,9 +114,7 @@ export async function GET(request: NextRequest) {
 
       if (!hasTodayArticles) {
         // No feed with articles today — generate fresh, don't fall through to stale cache
-        // This reuses the same generation logic as the "current" path below
-        // but we skip past the range handling entirely
-        range = null as unknown as string; // clear range so it falls into the live generation path
+        generateFresh = true;
       } else {
         // Aggregate today's feeds
         const seenUrls = new Set<string>();
@@ -157,7 +156,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Historical feed queries (week/month) — aggregate from stored feeds
-    if (range && range !== "today") {
+    if (range && range !== "today" && !generateFresh) {
       const now = new Date();
       let since: Date;
       if (range === "week") { since = new Date(now); since.setDate(since.getDate() - 7); since.setHours(0, 0, 0, 0); }

@@ -90,7 +90,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Covers ML, NLP, and AI integration challenges specifically for product managers.",
     roles: ["product_management"],
-    tags: ["AI Agents & Automation", "LLMs & Prompting"],
+    tags: ["AI Agents & Workflows", "LLMs & Models"],
   },
   {
     title: "Generative AI for Product Managers",
@@ -99,7 +99,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "AI use cases, roadmapping, and PM workflows with generative AI tools.",
     roles: ["product_management"],
-    tags: ["AI Agents & Automation"],
+    tags: ["AI Agents & Workflows"],
   },
   {
     title: "AI PM Course",
@@ -108,7 +108,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Most comprehensive free AI PM curriculum — covers synthetic personas, agentic workflows, and AI-powered product discovery.",
     roles: ["product_management"],
-    tags: ["AI Agents & Automation", "LLMs & Prompting"],
+    tags: ["AI Agents & Workflows", "LLMs & Models"],
   },
 
   // ── Marketing ──
@@ -120,7 +120,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     description: "6-hour course on AI content creation, personalization, and marketing tool evaluation. Best starting point for marketers.",
     duration: "6 hours",
     roles: ["marketing"],
-    tags: ["AI for Business/GTM", "AI Agents & Automation"],
+    tags: ["AI for Sales & Marketing", "AI Agents & Workflows"],
   },
   {
     title: "AI for Marketers",
@@ -129,7 +129,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "Generative AI for campaigns, AI agents for customer interactions, and marketing automation.",
     roles: ["marketing"],
-    tags: ["AI for Business/GTM", "AI Agents & Automation"],
+    tags: ["AI for Sales & Marketing", "AI Agents & Workflows"],
   },
   {
     title: "AI in Marketing",
@@ -138,7 +138,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "AI applications for SEO, content marketing, and digital campaign optimization.",
     roles: ["marketing"],
-    tags: ["AI for Business/GTM"],
+    tags: ["AI for Sales & Marketing"],
   },
   {
     title: "AI Fluency (Anthropic Academy)",
@@ -147,7 +147,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "4D framework for thinking with AI — excellent for content strategists and marketing professionals.",
     roles: ["marketing", "executive"],
-    tags: ["LLMs & Prompting", "AI for Business/GTM"],
+    tags: ["LLMs & Models", "AI for Sales & Marketing"],
   },
 
   // ── Sales ──
@@ -158,7 +158,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "SDR automation, Sales Coach agent, and AI-powered prospecting with Agentforce.",
     roles: ["sales"],
-    tags: ["AI Agents & Automation", "AI for Business/GTM"],
+    tags: ["AI Agents & Workflows", "AI for Sales & Marketing"],
   },
   {
     title: "AI in Sales & Marketing",
@@ -167,7 +167,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Practical AI for sales forecasting, customer targeting, and lead generation.",
     roles: ["sales", "marketing"],
-    tags: ["AI for Business/GTM"],
+    tags: ["AI for Sales & Marketing"],
   },
 
   // ── Finance & Accounting ──
@@ -178,7 +178,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Built for CPAs, analysts, and CFOs — covers fraud detection, automated reconciliation, and AI forecasting.",
     roles: ["finance"],
-    tags: ["Data & Analytics", "AI Agents & Automation"],
+    tags: ["AI for Data & Analytics", "AI Agents & Workflows"],
   },
   {
     title: "AI Applications in Accounting and Finance",
@@ -187,7 +187,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free to audit",
     description: "Working with unstructured financial data and AI-powered analysis workflows.",
     roles: ["finance"],
-    tags: ["Data & Analytics"],
+    tags: ["AI for Data & Analytics"],
   },
 
   // ── Legal ──
@@ -198,7 +198,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Built for law firms — covers AI tool selection, ethics, confidentiality, and task automation.",
     roles: ["legal"],
-    tags: ["AI Governance & Ethics", "AI Agents & Automation"],
+    tags: ["AI Agents & Workflows", "AI Agents & Workflows"],
   },
   {
     title: "AI Law & Legal Training",
@@ -207,7 +207,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "8-course series on AI use cases, risk, regulation, and ethics for legal professionals.",
     roles: ["legal"],
-    tags: ["AI Governance & Ethics"],
+    tags: ["AI Agents & Workflows"],
   },
 
   // ── Healthcare ──
@@ -219,7 +219,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     description: "LLMs in clinical and administrative healthcare settings — for clinicians, admins, and researchers.",
     roles: ["healthcare"],
     industries: ["healthcare_pharma"],
-    tags: ["LLMs & Prompting"],
+    tags: ["LLMs & Models"],
   },
   {
     title: "AI in Healthcare",
@@ -229,7 +229,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     description: "AI ethics, governance, and patient care applications for all healthcare workers.",
     roles: ["healthcare"],
     industries: ["healthcare_pharma"],
-    tags: ["AI Governance & Ethics"],
+    tags: ["AI Agents & Workflows"],
   },
 
   // ── Supply Chain & Operations ──
@@ -240,7 +240,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "Built for frontline workers and leaders — covers routing optimization and AI for daily operations.",
     roles: ["supply_chain"],
-    tags: ["AI Agents & Automation"],
+    tags: ["AI Agents & Workflows"],
   },
   {
     title: "AI in Supply Chain",
@@ -249,7 +249,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free to audit",
     description: "8-module course covering AI for demand forecasting, inventory management, and logistics.",
     roles: ["supply_chain"],
-    tags: ["Data & Analytics", "AI Agents & Automation"],
+    tags: ["AI for Data & Analytics", "AI Agents & Workflows"],
   },
 
   // ── Developers & Engineers ──
@@ -260,7 +260,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free to audit",
     description: "Prompt engineering, fine-tuning, and deployment — requires basic Python knowledge.",
     roles: ["engineering", "data"],
-    tags: ["LLMs & Prompting", "AI Coding Tools"],
+    tags: ["LLMs & Models", "AI Coding & Dev Tools"],
   },
   {
     title: "Building with the Claude API",
@@ -269,7 +269,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Practical API integration, building agents, and production Claude workflows.",
     roles: ["engineering", "data"],
-    tags: ["AI Coding Tools", "AI Agents & Automation"],
+    tags: ["AI Coding & Dev Tools", "AI Agents & Workflows"],
   },
 
   // ── Data Analytics ──
@@ -280,7 +280,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free to audit",
     description: "12-course suite including 'Generative AI: Elevate Your Data Science Career.'",
     roles: ["data"],
-    tags: ["Data & Analytics", "LLMs & Prompting"],
+    tags: ["AI for Data & Analytics", "LLMs & Models"],
   },
   {
     title: "AI for Data Analysts",
@@ -289,7 +289,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free",
     description: "Generative AI applied to business intelligence and analytics workflows.",
     roles: ["data"],
-    tags: ["Data & Analytics"],
+    tags: ["AI for Data & Analytics"],
   },
 
   // ── Cybersecurity ──
@@ -300,7 +300,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Core principles of AI-powered threat detection, defense systems, and ethical considerations.",
     roles: ["cybersecurity"],
-    tags: ["AI Governance & Ethics"],
+    tags: ["AI Agents & Workflows"],
   },
   {
     title: "SecureAI",
@@ -310,7 +310,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     description: "6-week program covering adversarial attacks, privacy, fairness, and trust in AI systems.",
     duration: "6 weeks",
     roles: ["cybersecurity", "engineering"],
-    tags: ["AI Governance & Ethics"],
+    tags: ["AI Agents & Workflows"],
   },
 
   // ── HR ──
@@ -321,7 +321,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free to audit",
     description: "GenAI literacy, key risks, and HR-focused AI tools for recruitment and employee experience.",
     roles: ["hr"],
-    tags: ["AI Agents & Automation", "AI Governance & Ethics"],
+    tags: ["AI Agents & Workflows", "AI Agents & Workflows"],
   },
 
   // ── General Business / Executive ──
@@ -333,7 +333,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     description: "Non-technical overview — best for executives and cross-functional business leaders.",
     roles: ["executive"],
     seniority: ["Executive", "Founder", "Director"],
-    tags: ["AI for Business/GTM"],
+    tags: ["AI for Sales & Marketing"],
   },
   {
     title: "Generative AI for Executives",
@@ -344,7 +344,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     duration: "1 hour",
     roles: ["executive"],
     seniority: ["Executive", "Founder", "Director", "Manager"],
-    tags: ["AI for Business/GTM"],
+    tags: ["AI for Sales & Marketing"],
   },
   {
     title: "OpenAI Academy: AI Foundations",
@@ -353,7 +353,7 @@ const TRAINING_COURSES: TrainingCourse[] = [
     cost: "Free + Certificate",
     description: "Official OpenAI certification built with ETS & Pearson — covers AI fundamentals and practical applications.",
     roles: ["executive", "marketing", "sales", "product_management"],
-    tags: ["LLMs & Prompting", "AI for Business/GTM"],
+    tags: ["LLMs & Models", "AI for Sales & Marketing"],
   },
 ];
 

@@ -4,13 +4,11 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const AI_INTERESTS = [
-  "AI Coding Tools",
-  "AI Agents & Automation",
-  "Data & Analytics",
-  "LLMs & Prompting",
-  "AI Governance & Ethics",
-  "Computer Vision",
-  "AI for Business/GTM",
+  "AI Coding & Dev Tools",
+  "AI Agents & Workflows",
+  "LLMs & Models",
+  "AI for Sales & Marketing",
+  "AI for Data & Analytics",
 ];
 
 const SENIORITY_OPTIONS = [
@@ -42,14 +40,11 @@ const TOOLING_FOCUS_OPTIONS = [
 ];
 
 const AI_GOALS = [
-  "Automate repetitive work",
+  "Evaluate & compare AI tools",
+  "Automate internal workflows",
   "Build AI-powered products",
-  "Improve team productivity",
-  "Stay ahead of AI trends",
-  "Evaluate AI vendors/tools",
-  "Upskill my team on AI",
-  "AI governance & compliance",
-  "Data pipeline automation",
+  "Train my team on AI",
+  "Stay current on AI trends",
 ];
 
 export default function SettingsPage() {
